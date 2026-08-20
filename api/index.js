@@ -200,6 +200,35 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
+    // Verify that resolvedUserId actually exists in the users table to prevent Foreign Key constraint errors
+    if (resolvedUserId) {
+      const userExists = await turso.execute({
+        sql: 'SELECT id FROM users WHERE id = ?',
+        args: [resolvedUserId]
+      });
+      if (userExists.rows.length === 0) {
+        resolvedUserId = null;
+      }
+    }
+
+    // If still null, check if shippingDetails has an email that matches an existing registered user
+    if (!resolvedUserId && shippingDetails) {
+      try {
+        const parsedShipping = typeof shippingDetails === 'string' 
+          ? JSON.parse(shippingDetails) 
+          : shippingDetails;
+        if (parsedShipping?.email) {
+          const userByEmail = await turso.execute({
+            sql: 'SELECT id FROM users WHERE LOWER(email) = LOWER(?)',
+            args: [parsedShipping.email.trim()]
+          });
+          if (userByEmail.rows.length > 0) {
+            resolvedUserId = userByEmail.rows[0].id;
+          }
+        }
+      } catch (e) {}
+    }
+
     const finalTotal = parseFloat(total) || 0;
     const finalSubtotal = parseFloat(subtotal) || finalTotal;
     const finalDiscountPercent = parseInt(discountPercent, 10) || 0;
