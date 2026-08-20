@@ -217,14 +217,41 @@ app.post('/api/orders', async (req, res) => {
 // 8. GET /api/orders/all
 app.get('/api/orders/all', async (req, res) => {
   try {
-    const ordersResult = await turso.execute('SELECT * FROM orders ORDER BY created_at DESC');
+    const ordersResult = await turso.execute(`
+      SELECT orders.*, users.email as user_email, users.name as user_name, users.phone as user_phone
+      FROM orders 
+      LEFT JOIN users ON orders.user_id = users.id
+      ORDER BY orders.created_at DESC
+    `);
     const itemsResult = await turso.execute('SELECT * FROM order_items');
 
-    const orders = ordersResult.rows.map(order => ({
-      ...order,
-      shipping_details: typeof order.shipping_details === 'string' ? JSON.parse(order.shipping_details || '{}') : order.shipping_details,
-      items: itemsResult.rows.filter(item => item.order_id === order.id)
-    }));
+    const orders = ordersResult.rows.map(order => {
+      let customerName = order.user_name || 'Guest Customer';
+      let customerEmail = order.user_email || '';
+      let customerPhone = order.user_phone || '';
+
+      let parsedShipping = {};
+      if (order.shipping_details) {
+        try {
+          parsedShipping = typeof order.shipping_details === 'string' 
+            ? JSON.parse(order.shipping_details) 
+            : order.shipping_details;
+          const shipName = `${parsedShipping.firstName || ''} ${parsedShipping.lastName || ''}`.trim();
+          if (shipName) customerName = shipName;
+          if (parsedShipping.email) customerEmail = parsedShipping.email;
+          if (parsedShipping.phone) customerPhone = parsedShipping.phone;
+        } catch (e) {}
+      }
+
+      return {
+        ...order,
+        shipping_details: parsedShipping,
+        user_name: customerName,
+        user_email: customerEmail || (customerPhone ? `Tel: ${customerPhone}` : 'Guest Customer'),
+        customer_phone: customerPhone,
+        items: itemsResult.rows.filter(item => item.order_id === order.id)
+      };
+    });
 
     res.json(orders);
   } catch (error) {
@@ -290,6 +317,78 @@ app.post('/api/reviews', async (req, res) => {
   } catch (error) {
     console.error('Error creating review:', error);
     res.status(500).json({ error: 'Failed to submit review' });
+  }
+});
+
+// 13. PUT /api/orders/:id/status
+app.put('/api/orders/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    await turso.execute({
+      sql: 'UPDATE orders SET status = ? WHERE id = ?',
+      args: [status, req.params.id]
+    });
+    res.json({ message: 'Order status updated successfully' });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// 14. Product Management (Admin)
+app.post('/api/products', async (req, res) => {
+  try {
+    const { name, inspiredBy, notes, price, image, isNew, category, details, stock, initial_stock } = req.body;
+    const result = await turso.execute({
+      sql: `INSERT INTO products (name, inspiredBy, notes, price, image, isNew, category, details, stock, initial_stock) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [name, inspiredBy || '', notes || '', price, image, isNew ? 1 : 0, category, details || '', stock || 50, initial_stock || 50]
+    });
+    res.status(201).json({ message: 'Product created', id: Number(result.lastInsertRowid) });
+  } catch (error) {
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const { name, inspiredBy, notes, price, image, isNew, category, details, stock, initial_stock } = req.body;
+    await turso.execute({
+      sql: `UPDATE products SET name = ?, inspiredBy = ?, notes = ?, price = ?, image = ?, isNew = ?, category = ?, details = ?, stock = ?, initial_stock = ? WHERE id = ?`,
+      args: [name, inspiredBy || '', notes || '', price, image, isNew ? 1 : 0, category, details || '', stock || 50, initial_stock || 50, req.params.id]
+    });
+    res.json({ message: 'Product updated successfully' });
+  } catch (error) {
+    console.error('Error updating product:', error);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
+app.patch('/api/products/:id/stock', async (req, res) => {
+  try {
+    const { stock, initial_stock } = req.body;
+    await turso.execute({
+      sql: 'UPDATE products SET stock = ?, initial_stock = ? WHERE id = ?',
+      args: [stock, initial_stock, req.params.id]
+    });
+    res.json({ message: 'Stock updated successfully' });
+  } catch (error) {
+    console.error('Error updating stock:', error);
+    res.status(500).json({ error: 'Failed to update stock' });
+  }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    await turso.execute({
+      sql: 'DELETE FROM products WHERE id = ?',
+      args: [req.params.id]
+    });
+    res.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    res.status(500).json({ error: 'Failed to delete product' });
   }
 });
 
