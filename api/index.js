@@ -281,6 +281,36 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
+    // --- DISCORD WEBHOOK INTEGRATION ---
+    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1537478820385525811/G67kdt8xvifiEGEZZypckGVn0ZYTYPxna_MDIyLX2lfOG4Ea0apt0tyyIQJpDoznfLFn";
+    if (discordWebhookUrl) {
+      try {
+        let shipObj = {};
+        try {
+          shipObj = typeof shippingDetails === 'string' ? JSON.parse(shippingDetails) : (shippingDetails || {});
+        } catch (e) {}
+
+        const customerName = `${shipObj.firstName || ''} ${shipObj.lastName || ''}`.trim() || 'Guest Customer';
+        const customerEmail = shipObj.email || 'N/A';
+        const customerPhone = shipObj.phone || 'N/A';
+        const itemsList = Array.isArray(items) 
+          ? items.map(item => `- ${item.quantity || 1}x ${item.name || 'Jewelry Piece'}`).join('\n')
+          : 'N/A';
+
+        const discordMessage = {
+          content: `🚨 **NEW ORDER RECEIVED** 🚨\n**Order ID:** #${orderId}\n**Customer:** ${customerName} (${customerEmail})\n**Phone:** ${customerPhone}\n**Total:** ${finalTotal.toFixed(2)} DH\n**Items:**\n${itemsList}`
+        };
+
+        fetch(discordWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(discordMessage)
+        }).catch(err => console.error('Failed to send Discord webhook:', err));
+      } catch (err) {
+        console.error('Discord webhook error:', err);
+      }
+    }
+
     res.status(201).json({ message: 'Order created successfully', orderId });
   } catch (error) {
     console.error('Error creating order:', error);
