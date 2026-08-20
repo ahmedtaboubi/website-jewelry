@@ -263,10 +263,30 @@ app.get('/api/orders/all', async (req, res) => {
 // 9. GET /api/orders/:userId
 app.get('/api/orders/:userId', async (req, res) => {
   try {
-    const ordersResult = await turso.execute({
-      sql: 'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
-      args: [req.params.userId]
+    const userId = parseInt(req.params.userId, 10);
+
+    // Find the user to also check their email
+    const userRes = await turso.execute({
+      sql: 'SELECT id, email FROM users WHERE id = ?',
+      args: [userId]
     });
+    const userEmail = userRes.rows[0]?.email || '';
+
+    // Search by user_id OR matching email in shipping_details
+    let ordersResult;
+    if (userEmail) {
+      const emailPattern = `%"email":"${userEmail}"%`;
+      ordersResult = await turso.execute({
+        sql: 'SELECT * FROM orders WHERE user_id = ? OR shipping_details LIKE ? ORDER BY created_at DESC',
+        args: [userId, emailPattern]
+      });
+    } else {
+      ordersResult = await turso.execute({
+        sql: 'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
+        args: [userId]
+      });
+    }
+
     const itemsResult = await turso.execute('SELECT * FROM order_items');
 
     const orders = ordersResult.rows.map(order => ({
