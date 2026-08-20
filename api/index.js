@@ -182,35 +182,80 @@ app.post('/api/orders', async (req, res) => {
   try {
     const { userId, total, subtotal, discountPercent, discountAmount, shippingCost, shippingDetails, items } = req.body;
 
+    let resolvedUserId = null;
+    if (userId) {
+      const parsed = parseInt(userId, 10);
+      if (!isNaN(parsed) && parsed > 0) resolvedUserId = parsed;
+    }
+
+    // Try extracting from auth header if userId was not directly provided
+    if (!resolvedUserId) {
+      const authHeader = req.headers['authorization'];
+      const token = authHeader && authHeader.split(' ')[1];
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          if (decoded && decoded.id) resolvedUserId = parseInt(decoded.id, 10) || null;
+        } catch (e) {}
+      }
+    }
+
+    const finalTotal = parseFloat(total) || 0;
+    const finalSubtotal = parseFloat(subtotal) || finalTotal;
+    const finalDiscountPercent = parseInt(discountPercent, 10) || 0;
+    const finalDiscountAmount = parseFloat(discountAmount) || 0;
+    const finalShippingCost = parseFloat(shippingCost) || 0;
+    const shippingDetailsStr = typeof shippingDetails === 'string' 
+      ? shippingDetails 
+      : JSON.stringify(shippingDetails || {});
+    const nowIso = new Date().toISOString();
+
     const orderResult = await turso.execute({
-      sql: `INSERT INTO orders (user_id, total, subtotal, discount_percent, discount_amount, shipping_cost, shipping_details, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Processing')`,
+      sql: `INSERT INTO orders (user_id, total, subtotal, discount_percent, discount_amount, shipping_cost, shipping_details, status, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Processing', ?)`,
       args: [
-        userId || null, 
-        total, 
-        subtotal || 0, 
-        discountPercent || 0, 
-        discountAmount || 0, 
-        shippingCost || 0, 
-        JSON.stringify(shippingDetails || {})
+        resolvedUserId, 
+        finalTotal, 
+        finalSubtotal, 
+        finalDiscountPercent, 
+        finalDiscountAmount, 
+        finalShippingCost, 
+        shippingDetailsStr,
+        nowIso
       ]
     });
 
     const orderId = Number(orderResult.lastInsertRowid);
 
-    if (Array.isArray(items)) {
+    if (Array.isArray(items) && items.length > 0) {
       for (const item of items) {
         await turso.execute({
           sql: `INSERT INTO order_items (order_id, product_name, product_image, quantity, price) VALUES (?, ?, ?, ?, ?)`,
-          args: [orderId, item.name, item.image || '', item.quantity, item.price]
+          args: [
+            orderId, 
+            item.name || 'Jewelry Item', 
+            item.image || '', 
+            parseInt(item.quantity, 10) || 1, 
+            parseFloat(item.price) || 0
+          ]
         });
+
+        // Decrement product stock if product id exists
+        if (item.id) {
+          try {
+            await turso.execute({
+              sql: 'UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?',
+              args: [parseInt(item.quantity, 10) || 1, item.id]
+            });
+          } catch (e) {}
+        }
       }
     }
 
     res.status(201).json({ message: 'Order created successfully', orderId });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).json({ error: 'Failed to place order' });
+    res.status(500).json({ error: error.message || 'Failed to place order' });
   }
 });
 
