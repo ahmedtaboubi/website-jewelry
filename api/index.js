@@ -507,16 +507,248 @@ app.patch('/api/products/:id/stock', async (req, res) => {
   }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
+// 15. Admin Team Management
+app.get('/api/admin/team', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    let currentAdminId = 1;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded && decoded.id) currentAdminId = decoded.id;
+      } catch (e) {}
+    }
+
+    const admins = await turso.execute(`
+      SELECT id, name, email, phone, is_admin, created_at
+      FROM users
+      WHERE is_admin = 1
+      ORDER BY id ASC
+    `);
+
+    res.json({ admins: admins.rows, currentAdminId });
+  } catch (error) {
+    console.error('Fetch admin team error:', error);
+    res.status(500).json({ error: 'Failed to fetch admin team' });
+  }
+});
+
+app.post('/api/admin/team/create', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+
+    const cleanName = name.toString().trim();
+    const cleanEmail = email.toString().trim().toLowerCase();
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const existingUser = await turso.execute({
+      sql: 'SELECT id, is_admin FROM users WHERE LOWER(email) = LOWER(?)',
+      args: [cleanEmail]
+    });
+
+    if (existingUser.rows.length > 0) {
+      const userRow = existingUser.rows[0];
+      if (userRow.is_admin === 1) {
+        return res.status(400).json({ error: 'An admin account with this email already exists.' });
+      }
+      await turso.execute({
+        sql: 'UPDATE users SET is_admin = 1, name = ?, password = ? WHERE id = ?',
+        args: [cleanName, hashedPassword, userRow.id]
+      });
+      const updatedUser = await turso.execute({
+        sql: 'SELECT id, name, email, phone, is_admin, created_at FROM users WHERE id = ?',
+        args: [userRow.id]
+      });
+      return res.json({ message: `User ${cleanEmail} promoted to Admin!`, admin: updatedUser.rows[0] });
+    }
+
+    const insertResult = await turso.execute({
+      sql: 'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, 1)',
+      args: [cleanName, cleanEmail, hashedPassword]
+    });
+
+    const newAdminId = Number(insertResult.lastInsertRowid);
+    const newAdmin = await turso.execute({
+      sql: 'SELECT id, name, email, phone, is_admin, created_at FROM users WHERE id = ?',
+      args: [newAdminId]
+    });
+
+    res.status(201).json({ message: `Admin ${cleanName} created successfully!`, admin: newAdmin.rows[0] });
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({ error: 'Failed to create admin' });
+  }
+});
+
+app.put('/api/admin/team/:id/revoke', async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    await turso.execute({
+      sql: 'UPDATE users SET is_admin = 0 WHERE id = ?',
+      args: [targetId]
+    });
+    res.json({ message: 'Admin privileges revoked successfully' });
+  } catch (error) {
+    console.error('Revoke admin error:', error);
+    res.status(500).json({ error: 'Failed to revoke admin privileges' });
+  }
+});
+
+app.delete('/api/admin/team/:id', async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    await turso.execute({
+      sql: 'DELETE FROM users WHERE id = ?',
+      args: [targetId]
+    });
+    res.json({ message: 'Admin account deleted successfully' });
+  } catch (error) {
+    console.error('Delete admin error:', error);
+    res.status(500).json({ error: 'Failed to delete admin' });
+  }
+});
+
+// 16. Admin Reviews Moderation
+app.get('/api/admin/reviews', async (req, res) => {
+  try {
+    const status = req.query.status;
+    let result;
+    if (status && status !== 'all') {
+      result = await turso.execute({
+        sql: `SELECT reviews.*, products.name as product_name, products.image as product_image 
+              FROM reviews 
+              LEFT JOIN products ON reviews.product_id = products.id 
+              WHERE reviews.status = ? 
+              ORDER BY reviews.created_at DESC`,
+        args: [status]
+      });
+    } else {
+      result = await turso.execute(`
+        SELECT reviews.*, products.name as product_name, products.image as product_image 
+        FROM reviews 
+        LEFT JOIN products ON reviews.product_id = products.id 
+        ORDER BY reviews.created_at DESC
+      `);
+    }
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Fetch admin reviews error:', error);
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+app.put('/api/admin/reviews/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    await turso.execute({
+      sql: 'UPDATE reviews SET status = ? WHERE id = ?',
+      args: [status, req.params.id]
+    });
+    res.json({ message: 'Review status updated' });
+  } catch (error) {
+    console.error('Update review status error:', error);
+    res.status(500).json({ error: 'Failed to update review status' });
+  }
+});
+
+app.delete('/api/admin/reviews/:id', async (req, res) => {
   try {
     await turso.execute({
-      sql: 'DELETE FROM products WHERE id = ?',
+      sql: 'DELETE FROM reviews WHERE id = ?',
       args: [req.params.id]
     });
-    res.json({ message: 'Product deleted successfully' });
+    res.json({ message: 'Review deleted' });
   } catch (error) {
-    console.error('Error deleting product:', error);
-    res.status(500).json({ error: 'Failed to delete product' });
+    console.error('Delete review error:', error);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+// 17. Ad Spend Management
+app.get('/api/ad-spend', async (req, res) => {
+  try {
+    const result = await turso.execute('SELECT * FROM ad_spends ORDER BY date DESC, id DESC');
+    res.json(result.rows);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+app.post('/api/ad-spend', async (req, res) => {
+  try {
+    const { platform, amount, date, notes } = req.body;
+    const result = await turso.execute({
+      sql: 'INSERT INTO ad_spends (platform, amount, date, notes) VALUES (?, ?, ?, ?)',
+      args: [platform, parseFloat(amount) || 0, date, notes || '']
+    });
+    res.status(201).json({ message: 'Ad spend recorded', id: Number(result.lastInsertRowid) });
+  } catch (error) {
+    console.error('Create ad spend error:', error);
+    res.status(500).json({ error: 'Failed to record ad spend' });
+  }
+});
+
+app.delete('/api/ad-spend/:id', async (req, res) => {
+  try {
+    await turso.execute({
+      sql: 'DELETE FROM ad_spends WHERE id = ?',
+      args: [req.params.id]
+    });
+    res.json({ message: 'Ad spend deleted' });
+  } catch (error) {
+    console.error('Delete ad spend error:', error);
+    res.status(500).json({ error: 'Failed to delete ad spend' });
+  }
+});
+
+// 18. Ingredients Management
+app.post('/api/ingredients', async (req, res) => {
+  try {
+    const { name, origin, scentProfile, harvestSeason, description, image } = req.body;
+    const result = await turso.execute({
+      sql: 'INSERT INTO ingredients (name, origin, scentProfile, harvestSeason, description, image) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [name, origin || '', scentProfile || '', harvestSeason || '', description || '', image || '']
+    });
+    res.status(201).json({ message: 'Ingredient added', id: Number(result.lastInsertRowid) });
+  } catch (error) {
+    console.error('Add ingredient error:', error);
+    res.status(500).json({ error: 'Failed to add ingredient' });
+  }
+});
+
+app.put('/api/ingredients/:id', async (req, res) => {
+  try {
+    const { name, origin, scentProfile, harvestSeason, description, image } = req.body;
+    await turso.execute({
+      sql: 'UPDATE ingredients SET name = ?, origin = ?, scentProfile = ?, harvestSeason = ?, description = ?, image = ? WHERE id = ?',
+      args: [name, origin || '', scentProfile || '', harvestSeason || '', description || '', image || '', req.params.id]
+    });
+    res.json({ message: 'Ingredient updated' });
+  } catch (error) {
+    console.error('Update ingredient error:', error);
+    res.status(500).json({ error: 'Failed to update ingredient' });
+  }
+});
+
+app.delete('/api/ingredients/:id', async (req, res) => {
+  try {
+    await turso.execute({
+      sql: 'DELETE FROM ingredients WHERE id = ?',
+      args: [req.params.id]
+    });
+    res.json({ message: 'Ingredient deleted' });
+  } catch (error) {
+    console.error('Delete ingredient error:', error);
+    res.status(500).json({ error: 'Failed to delete ingredient' });
   }
 });
 
