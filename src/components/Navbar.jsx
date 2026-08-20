@@ -81,7 +81,19 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isParfumsMenuOpen, setIsParfumsMenuOpen] = useState(false);
-  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  // Prevent background scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileDrawerOpen]);
 
   useEffect(() => {
     const handleScrollEvent = () => {
@@ -92,7 +104,8 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
   }, []);
 
   const handleNavClick = (e, id, filter = '') => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setIsMobileDrawerOpen(false);
     if (currentPage !== 'home') {
       if (id === 'shop') {
         goToShop(filter);
@@ -110,7 +123,8 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
   };
 
   const handleBundleClick = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setIsMobileDrawerOpen(false);
     goToBundle();
   };
 
@@ -123,13 +137,209 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
         onProductClick={onProductClick}
         goToShop={goToShop}
       />
+
+      {/* Mobile Drawer Overlay */}
+      {isMobileDrawerOpen && (
+        <div 
+          className="mobile-drawer-overlay animate-fade-in" 
+          onClick={() => setIsMobileDrawerOpen(false)}
+        />
+      )}
+
+      {/* Mobile Slide-Out Drawer Menu */}
+      <div className={`mobile-drawer ${isMobileDrawerOpen ? 'open' : ''}`}>
+        <div className="mobile-drawer-header">
+          <div className="mobile-drawer-brand" onClick={() => { setIsMobileDrawerOpen(false); goToHome(); }}>
+            <span className="logo-main">AURA</span>
+            <span className="logo-sub">[aura]</span>
+          </div>
+          <button 
+            className="mobile-drawer-close-btn" 
+            aria-label="Close Menu"
+            onClick={() => setIsMobileDrawerOpen(false)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div className="mobile-drawer-body">
+          {/* Quick Search Trigger */}
+          <div 
+            className="mobile-drawer-search" 
+            onClick={() => { setIsMobileDrawerOpen(false); setIsSearchOpen(true); }}
+          >
+            <Search size={16} color="#777" />
+            <span>{t('navbar.search_placeholder')}</span>
+          </div>
+
+          {/* Special Bundle Builder Promo Button */}
+          <div 
+            className="mobile-drawer-bundle-card"
+            onClick={handleBundleClick}
+          >
+            <div className="bundle-card-badge">✨ {t('navbar.bundle')}</div>
+            <p className="bundle-card-desc">Create your customized jewelry set & save up to 25%!</p>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="mobile-nav-group">
+            <div className="mobile-group-title">{t('navbar.shop')}</div>
+            
+            <button 
+              className="mobile-nav-link featured-link" 
+              onClick={(e) => handleNavClick(e, 'shop')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#fef3c7' }}>
+                <DiamondIcon size={18} color="#d97706" />
+              </div>
+              <span>{t('navbar.shop_all')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+
+            <button 
+              className="mobile-nav-link" 
+              onClick={(e) => handleNavClick(e, 'shop', 'rings')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#fef9c3' }}>
+                <RingIcon size={16} color="#ca8a04" />
+              </div>
+              <span>{t('navbar.rings')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+
+            <button 
+              className="mobile-nav-link" 
+              onClick={(e) => handleNavClick(e, 'shop', 'necklaces')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#dbeafe' }}>
+                <NecklaceIcon size={16} color="#2563eb" />
+              </div>
+              <span>{t('navbar.necklaces')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+
+            <button 
+              className="mobile-nav-link" 
+              onClick={(e) => handleNavClick(e, 'shop', 'bracelets')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#d1fae5' }}>
+                <BraceletEarringIcon size={16} color="#059669" />
+              </div>
+              <span>{t('navbar.bracelets')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+
+            <button 
+              className="mobile-nav-link" 
+              onClick={(e) => handleNavClick(e, 'shop', 'bestsellers')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#fef3c7' }}>
+                <TrophyIcon size={16} color="#d97706" />
+              </div>
+              <span>{t('navbar.best_sellers')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+
+            <button 
+              className="mobile-nav-link" 
+              onClick={(e) => handleNavClick(e, 'about')}
+            >
+              <div className="mobile-icon-box" style={{ background: '#ede9fe' }}>
+                <CollectionsIcon size={16} color="#7c3aed" />
+              </div>
+              <span>{t('navbar.about')}</span>
+              <ChevronRight size={16} color="#aaa" />
+            </button>
+          </div>
+
+          {/* Account / Authentication Group */}
+          <div className="mobile-nav-group">
+            <div className="mobile-group-title">Account</div>
+            {currentUser ? (
+              <div className="mobile-user-card">
+                <div className="mobile-user-info">
+                  <div className="mobile-user-avatar">
+                    <User size={20} color="var(--color-accent)" />
+                  </div>
+                  <div>
+                    <div className="mobile-user-name">{currentUser.name}</div>
+                    <div className="mobile-user-email">{currentUser.email}</div>
+                  </div>
+                </div>
+                <div className="mobile-user-actions">
+                  <button 
+                    className="mobile-action-btn"
+                    onClick={() => { setIsMobileDrawerOpen(false); goToProfile(); }}
+                  >
+                    👤 {t('navbar.profile')}
+                  </button>
+                  {currentUser?.is_admin === 1 && (
+                    <button 
+                      className="mobile-action-btn admin-btn"
+                      onClick={() => { setIsMobileDrawerOpen(false); goToAdmin(); }}
+                    >
+                      🛡️ {t('navbar.admin')}
+                    </button>
+                  )}
+                  <button 
+                    className="mobile-action-btn logout-btn"
+                    onClick={() => { setIsMobileDrawerOpen(false); onLogout(); }}
+                  >
+                    🚪 {t('navbar.logout')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button 
+                className="mobile-login-btn"
+                onClick={() => { setIsMobileDrawerOpen(false); onAuthClick(); }}
+              >
+                <User size={18} />
+                <span>Sign In / Register</span>
+              </button>
+            )}
+          </div>
+
+          {/* Language Selector */}
+          <div className="mobile-nav-group">
+            <div className="mobile-group-title">Language</div>
+            <div className="mobile-lang-grid">
+              <button 
+                className={`mobile-lang-btn ${(i18n.language?.substring(0, 2) === 'en') ? 'active' : ''}`}
+                onClick={() => { i18n.changeLanguage('en'); setIsMobileDrawerOpen(false); }}
+              >
+                🇬🇧 English
+              </button>
+              <button 
+                className={`mobile-lang-btn ${(i18n.language?.substring(0, 2) === 'fr') ? 'active' : ''}`}
+                onClick={() => { i18n.changeLanguage('fr'); setIsMobileDrawerOpen(false); }}
+              >
+                🇫🇷 Français
+              </button>
+              <button 
+                className={`mobile-lang-btn ${(i18n.language?.substring(0, 2) === 'ar') ? 'active' : ''}`}
+                onClick={() => { i18n.changeLanguage('ar'); setIsMobileDrawerOpen(false); }}
+              >
+                🇲🇦 العربية
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <nav className={`dossier-navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="dossier-nav-container">
           
           <div className="d-nav-left">
-            <button className="d-pill-btn mobile-menu" aria-label="Menu" onClick={() => showToast('Mobile menu opened')}>
-              <Menu size={16} strokeWidth={2} />
+            <button 
+              className="d-pill-btn mobile-menu" 
+              aria-label="Menu" 
+              onClick={() => setIsMobileDrawerOpen(true)}
+            >
+              <Menu size={18} strokeWidth={2} />
             </button>
             <div 
               className="d-nav-item-container"
