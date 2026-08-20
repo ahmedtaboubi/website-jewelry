@@ -82,6 +82,7 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isParfumsMenuOpen, setIsParfumsMenuOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
 
   // Prevent background scroll when mobile drawer is open
   useEffect(() => {
