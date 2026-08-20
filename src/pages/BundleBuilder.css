@@ -1,0 +1,409 @@
+.bundle-sticky-bar {
+  position: sticky;
+  top: 65px; /* Sits right below the navbar */
+  left: 0;
+  width: 100%;
+  /* A distinct warm cream/light-peach color that fades out */
+  background: linear-gradient(to bottom, rgba(253, 246, 245, 1) 75%, rgba(253, 246, 245, 0) 100%);
+  border-bottom: none;
+  z-index: 90;
+  padding: 1rem 0 2.5rem 0;
+  pointer-events: none; /* Let clicks pass through the faded bottom part */
+}
+
+.bundle-sticky-bar .container {
+  pointer-events: auto; /* Re-enable clicks for the actual content */
+}
+
+.bundle-bar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.bundle-progress {
+  flex: 1;
+}
+
+.progress-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.text-accent {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.next-goal {
+  font-size: 0.95rem;
+  color: var(--color-text-light);
+  font-family: var(--font-primary);
+  background: var(--color-bg);
+  padding: 0.1rem 0.6rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.progress-count {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  font-weight: 500;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.bundle-slots {
+  display: flex;
+  gap: 0.8rem;
+  flex: 1;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bundle-slot {
+  width: 65px;
+  height: 80px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-light);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.bundle-slot.filled {
+  border: 1px solid var(--color-border);
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.bundle-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.slot-remove {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--color-text);
+  color: #fff;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.bundle-slot.filled:hover .slot-remove {
+  opacity: 1;
+}
+
+.bundle-action {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.bundle-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.bundle-subtotal {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  text-decoration: line-through;
+}
+
+.compact-progress {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  background: var(--color-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-accent);
+  font-weight: 500;
+  margin: 0.2rem 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bundle-total {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+/* Add custom styling for the Add to Cart button inside the ProductCard when used in BundleBuilder */
+.bundle-product-wrapper .btn-add-card {
+  background-color: var(--color-bg-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-text);
+}
+
+.bundle-product-wrapper .btn-add-card:hover {
+  background-color: var(--color-text);
+  color: #fff;
+}
+
+/* Bundle Hero & Size Options */
+.bundle-hero {
+  padding: 3rem 0 1.5rem;
+  background-color: var(--color-bg);
+}
+
+.bundle-size-options {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.size-option {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 0.5rem 1.5rem;
+  cursor: pointer;
+  min-width: 150px;
+  text-align: center;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.size-option:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.size-option.active {
+  background: #ffffff;
+  border: 1.5px solid var(--color-accent);
+  box-shadow: 0 4px 15px rgba(184, 144, 88, 0.18);
+}
+
+.size-option h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+}
+
+.size-discount {
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Filters */
+.bundle-filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--color-text-light);
+  transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.filter-btn.active {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-color: var(--color-text);
+}
+
+@media (max-width: 768px) {
+  .bundle-sticky-bar {
+    position: sticky;
+    top: 65px;
+    background: var(--color-bg);
+    padding-bottom: 1rem;
+    padding-top: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: padding 0.3s ease;
+  }
+
+  .bundle-size-options,
+  .bundle-progress {
+    max-height: 500px;
+    opacity: 1;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .bundle-sticky-bar.is-scrolled {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .bundle-sticky-bar.is-scrolled .bundle-size-options,
+  .bundle-sticky-bar.is-scrolled .bundle-progress {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .bundle-sticky-bar.is-scrolled .bundle-bar-content {
+    gap: 0;
+  }
+
+  .bundle-sticky-bar.is-scrolled .bundle-action {
+    margin-top: 0.5rem;
+  }
+
+  .bundle-bar-content {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .bundle-progress {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .bundle-slots {
+    order: 2;
+    width: 100%;
+    flex: none;
+    display: block;
+    white-space: nowrap;
+    overflow-x: auto;
+    text-align: center;
+    padding-bottom: 0.5rem;
+    min-height: 90px;
+  }
+
+  .bundle-slots::before,
+  .bundle-slots::after {
+    display: none;
+  }
+  
+  .bundle-slot {
+    display: inline-flex;
+    vertical-align: top;
+    width: 65px;
+    height: 80px;
+    margin: 0 0.4rem;
+  }
+  
+  .bundle-action {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.8rem;
+    order: 3;
+  }
+
+  .bundle-pricing {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .bundle-size-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .size-option {
+    width: 100%;
+    min-width: unset;
+    padding: 0.5rem;
+  }
+  
+  .bundle-simple-btn {
+    width: 100%;
+  }
+}
+
+/* Luxury Add Bundle Button */
+.bundle-simple-btn {
+  padding: 1rem 2.2rem;
+  font-size: 0.95rem;
+  font-family: var(--font-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  background-color: #141414;
+  color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.bundle-simple-btn:hover {
+  background-color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(184, 144, 88, 0.3);
+}
+
+.bundle-simple-btn.qty-2,
+.bundle-simple-btn.qty-3,
+.bundle-simple-btn.qty-4,
+.bundle-simple-btn.qty-5 {
+  background-color: #141414;
+  border: 1px solid rgba(184, 144, 88, 0.3);
+}
+
+/* RTL Layout Enhancements */
+[dir="rtl"] .bundle-pricing {
+  align-items: flex-start;
+}
+
+[dir="rtl"] .compact-progress {
+  text-align: left;
+}
+
+[dir="rtl"] .slot-remove {
+  right: auto;
+  left: -5px;
+}

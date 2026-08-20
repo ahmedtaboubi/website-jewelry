@@ -1,0 +1,59 @@
+.dossier-trust-badges {
+  padding: 0.8rem 0;
+}
+
+.trust-badges-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 992px) {
+  .trust-badges-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .trust-badges-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trust-badge-card {
+  background-color: #FAF6F3;
+  border-radius: 12px;
+  padding: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  overflow: hidden;
+  min-height: 110px;
+}
+
+.tb-content {
+  position: relative;
+  z-index: 2;
+  max-width: 80%;
+}
+
+.tb-content h3 {
+  font-family: var(--font-primary);
+  font-size: 1.1rem;
+  font-weight: 400;
+  margin: 0 0 0.4rem 0;
+  line-height: 1.2;
+}
+
+.tb-content p {
+  font-size: 0.75rem;
+  margin: 0;
+  color: #555;
+}
+
+.tb-icon {
+  color: #333;
+}
+
+

@@ -1,0 +1,215 @@
+.checkout-page {
+  padding: 120px 0 var(--spacing-xl);
+  min-height: 80vh;
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+  .checkout-grid {
+    grid-template-columns: 1.5fr 1fr;
+  }
+}
+
+.checkout-form-container {
+  background: var(--color-bg);
+}
+
+.checkout-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.2rem;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text);
+}
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.form-section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text);
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color var(--transition-fast);
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-text);
+}
+
+.checkout-summary {
+  background: var(--color-gray-100, #fafafa);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  height: fit-content;
+  border: 1px solid #e0e0e0;
+}
+
+.summary-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: var(--spacing-sm);
+}
+
+.summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px dashed #e0e0e0;
+}
+
+.summary-item-img-wrapper {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  overflow: visible;
+  border: 1px solid #e0e0e0;
+  flex-shrink: 0;
+  background: white;
+}
+
+.summary-item-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.summary-item-qty {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--color-accent, #c6a87c);
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  z-index: 10;
+}
+
+.summary-item-info {
+  flex-grow: 1;
+}
+
+.summary-item-info h4 {
+  margin: 0;
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--color-text);
+}
+
+.summary-item-price {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.summary-totals {
+  margin-top: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+}
+
+.summary-final {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid #e0e0e0;
+}
+
+.checkout-submit {
+  width: 100%;
+  margin-top: var(--spacing-md);
+  padding: 1.2rem;
+  font-size: 1.1rem;
+}
+
+.trust-indicators {
+  margin-top: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.trust-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+}
+
+.checkout-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: var(--spacing-lg);
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.checkout-back:hover {
+  background: var(--color-gray-100, #f5f5f5);
+}
