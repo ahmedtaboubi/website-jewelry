@@ -33,7 +33,9 @@ const Profile = ({ currentUser, onLogout, onUpdateProfile, showToast }) => {
     if (currentUser) {
       const fetchOrders = async () => {
         try {
-          const response = await fetch(`/api/orders/${currentUser.id}`, {
+          const userIdentifier = currentUser.id || currentUser.email;
+          const emailParam = encodeURIComponent(currentUser.email || '');
+          const response = await fetch(`/api/orders/${userIdentifier}?email=${emailParam}`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
           });
           if (response.ok) {
