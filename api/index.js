@@ -1,0 +1,296 @@
+import express from 'express';
+import cors from 'cors';
+import { createClient } from '@libsql/client';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const TURSO_URL = process.env.TURSO_DATABASE_URL || "libsql://jewelry-db-ahmedtaboubi.aws-eu-west-1.turso.io";
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODcyNTQ3OTUsImlkIjoiMDFhMDIwYTktYmQwMS03ZjZiLWIyMjktMjBjMzQ3MmM1MTcwIiwia2lkIjoiQW5tcmtZYXNLRFdzLTlQTlJjMUhhQkw5V2loTkpXQ1FFZE5xWkhqdWNJbyIsInJpZCI6ImE0MzM0MzE4LTA5OTgtNDdiNi1iMTBhLTM1NTczNTc5YWJhZSJ9.4Wj7hzKYC4OnctQiAMJw7CoO-VKPzA8s7KfGq71JmI-AgUsBdM5An34eNZ3CcTURCIWbLev8sPA8RDmlfBiJCg";
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-development-key-parfum';
+
+const turso = createClient({
+  url: TURSO_URL,
+  authToken: TURSO_TOKEN
+});
+
+// Middleware: Authenticate Token
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token required' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+};
+
+// 1. GET /api/products
+app.get('/api/products', async (req, res) => {
+  try {
+    const result = await turso.execute('SELECT * FROM products ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
+// 2. GET /api/products/:id
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const result = await turso.execute({
+      sql: 'SELECT * FROM products WHERE id = ?',
+      args: [req.params.id]
+    });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({ error: 'Failed to fetch product' });
+  }
+});
+
+// 3. GET /api/products/search
+app.get('/api/products/search', async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    const pattern = `%${query}%`;
+    const result = await turso.execute({
+      sql: `SELECT * FROM products 
+            WHERE name LIKE ? OR category LIKE ? OR notes LIKE ? OR inspiredBy LIKE ? 
+            ORDER BY id ASC`,
+      args: [pattern, pattern, pattern, pattern]
+    });
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error searching products:', error);
+    res.status(500).json({ error: 'Failed to search products' });
+  }
+});
+
+// 4. POST /api/auth/register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, phone, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
+  try {
+    const existing = await turso.execute({
+      sql: 'SELECT * FROM users WHERE email = ?',
+      args: [email.toLowerCase()]
+    });
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Email is already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await turso.execute({
+      sql: 'INSERT INTO users (name, email, phone, password, is_admin) VALUES (?, ?, ?, ?, 0)',
+      args: [name, email.toLowerCase(), phone || '', hashedPassword]
+    });
+
+    const user = {
+      id: Number(result.lastInsertRowid),
+      name,
+      email: email.toLowerCase(),
+      phone: phone || '',
+      is_admin: 0
+    };
+
+    const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ message: 'User registered successfully', token, user });
+  } catch (error) {
+    console.error('Error during registration:', error);
+    res.status(500).json({ error: 'Failed to register user' });
+  }
+});
+
+// 5. POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    const result = await turso.execute({
+      sql: 'SELECT * FROM users WHERE email = ?',
+      args: [email.toLowerCase()]
+    });
+    const userRow = result.rows[0];
+
+    if (!userRow) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const match = await bcrypt.compare(password, userRow.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const user = {
+      id: userRow.id,
+      name: userRow.name,
+      email: userRow.email,
+      phone: userRow.phone || '',
+      address: userRow.address || '',
+      city: userRow.city || '',
+      zipCode: userRow.zipCode || '',
+      is_admin: userRow.is_admin ? 1 : 0
+    };
+
+    const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ message: 'Login successful', token, user });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 6. PUT /api/users/:id
+app.put('/api/users/:id', verifyToken, async (req, res) => {
+  try {
+    const { name, phone, address, city, zipCode } = req.body;
+    await turso.execute({
+      sql: `UPDATE users SET name = ?, phone = ?, address = ?, city = ?, zipCode = ? WHERE id = ?`,
+      args: [name, phone || '', address || '', city || '', zipCode || '', req.params.id]
+    });
+
+    const result = await turso.execute({
+      sql: 'SELECT id, name, email, phone, address, city, zipCode, is_admin FROM users WHERE id = ?',
+      args: [req.params.id]
+    });
+
+    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// 7. POST /api/orders
+app.post('/api/orders', async (req, res) => {
+  try {
+    const { userId, total, subtotal, discountPercent, discountAmount, shippingCost, shippingDetails, items } = req.body;
+
+    const orderResult = await turso.execute({
+      sql: `INSERT INTO orders (user_id, total, subtotal, discount_percent, discount_amount, shipping_cost, shipping_details, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Processing')`,
+      args: [
+        userId || null, 
+        total, 
+        subtotal || 0, 
+        discountPercent || 0, 
+        discountAmount || 0, 
+        shippingCost || 0, 
+        JSON.stringify(shippingDetails || {})
+      ]
+    });
+
+    const orderId = Number(orderResult.lastInsertRowid);
+
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        await turso.execute({
+          sql: `INSERT INTO order_items (order_id, product_name, product_image, quantity, price) VALUES (?, ?, ?, ?, ?)`,
+          args: [orderId, item.name, item.image || '', item.quantity, item.price]
+        });
+      }
+    }
+
+    res.status(201).json({ message: 'Order created successfully', orderId });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ error: 'Failed to place order' });
+  }
+});
+
+// 8. GET /api/orders/all
+app.get('/api/orders/all', async (req, res) => {
+  try {
+    const ordersResult = await turso.execute('SELECT * FROM orders ORDER BY created_at DESC');
+    const itemsResult = await turso.execute('SELECT * FROM order_items');
+
+    const orders = ordersResult.rows.map(order => ({
+      ...order,
+      shipping_details: typeof order.shipping_details === 'string' ? JSON.parse(order.shipping_details || '{}') : order.shipping_details,
+      items: itemsResult.rows.filter(item => item.order_id === order.id)
+    }));
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+// 9. GET /api/orders/:userId
+app.get('/api/orders/:userId', async (req, res) => {
+  try {
+    const ordersResult = await turso.execute({
+      sql: 'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
+      args: [req.params.userId]
+    });
+    const itemsResult = await turso.execute('SELECT * FROM order_items');
+
+    const orders = ordersResult.rows.map(order => ({
+      ...order,
+      shipping_details: typeof order.shipping_details === 'string' ? JSON.parse(order.shipping_details || '{}') : order.shipping_details,
+      items: itemsResult.rows.filter(item => item.order_id === order.id)
+    }));
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({ error: 'Failed to fetch user orders' });
+  }
+});
+
+// 10. GET /api/ingredients
+app.get('/api/ingredients', async (req, res) => {
+  try {
+    const result = await turso.execute('SELECT * FROM ingredients ORDER BY id ASC');
+    res.json(result.rows);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// 11. GET /api/products/:id/reviews
+app.get('/api/products/:id/reviews', async (req, res) => {
+  try {
+    const result = await turso.execute({
+      sql: 'SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC',
+      args: [req.params.id]
+    });
+    res.json(result.rows);
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// 12. POST /api/reviews
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { productId, author, rating, comment } = req.body;
+    await turso.execute({
+      sql: 'INSERT INTO reviews (product_id, author, rating, comment) VALUES (?, ?, ?, ?)',
+      args: [productId, author || 'Anonymous', rating || 5, comment || '']
+    });
+    res.status(201).json({ message: 'Review submitted successfully' });
+  } catch (error) {
+    console.error('Error creating review:', error);
+    res.status(500).json({ error: 'Failed to submit review' });
+  }
+});
+
+export default app;
