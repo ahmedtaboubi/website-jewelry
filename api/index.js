@@ -177,6 +177,123 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
   }
 });
 
+// 6a. POST /api/auth/forgot-password
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const cleanEmail = email.toString().trim().toLowerCase();
+    const result = await turso.execute({
+      sql: 'SELECT id, email, name FROM users WHERE LOWER(email) = ?',
+      args: [cleanEmail]
+    });
+
+    if (result.rows.length === 0) {
+      // Safe response to prevent account enumeration
+      return res.json({ message: 'If that email is registered, password reset instructions have been generated.' });
+    }
+
+    const user = result.rows[0];
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    const expiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+
+    await turso.execute({
+      sql: 'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?',
+      args: [resetToken, expiry, user.id]
+    });
+
+    res.json({ 
+      message: 'If that email is registered, password reset instructions have been generated.',
+      resetToken // Returned for seamless client-side password reset prompt
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process forgot password request' });
+  }
+});
+
+// 6b. POST /api/auth/reset-password
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Reset token and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const result = await turso.execute({
+      sql: 'SELECT id, reset_token_expiry FROM users WHERE reset_token = ?',
+      args: [token]
+    });
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired password reset link' });
+    }
+
+    const user = result.rows[0];
+    if (user.reset_token_expiry && new Date(user.reset_token_expiry) < new Date()) {
+      return res.status(400).json({ error: 'Password reset link has expired. Please request a new one.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await turso.execute({
+      sql: 'UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?',
+      args: [hashedPassword, user.id]
+    });
+
+    res.json({ message: 'Password has been successfully updated! You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// 6c. PUT /api/auth/change-password (Authenticated users)
+app.put('/api/auth/change-password', verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    const result = await turso.execute({
+      sql: 'SELECT id, password FROM users WHERE id = ?',
+      args: [req.user.id]
+    });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await turso.execute({
+      sql: 'UPDATE users SET password = ? WHERE id = ?',
+      args: [hashedPassword, req.user.id]
+    });
+
+    res.json({ message: 'Password updated successfully!' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 // 7. POST /api/orders
 app.post('/api/orders', async (req, res) => {
   try {

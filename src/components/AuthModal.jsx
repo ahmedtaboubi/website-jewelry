@@ -44,7 +44,11 @@ const AuthModal = ({ isOpen, onClose, onLogin, showToast, defaultView, defaultTo
         });
         const data = await response.json();
         if (!response.ok) {
-          setError(data.error || 'Failed to send reset link');
+          setError(data.error || 'Failed to send reset request');
+        } else if (data.resetToken) {
+          setResetToken(data.resetToken);
+          setView('reset');
+          showToast('Please enter your new password below.');
         } else {
           showToast(data.message || 'Please check your email for the reset link.');
           setView('login');

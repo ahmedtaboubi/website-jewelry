@@ -16,6 +16,32 @@ const Profile = ({ currentUser, onLogout, onUpdateProfile, showToast }) => {
     city: '',
     zipCode: ''
   });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify(passwordForm)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        showToast(data.error || 'Failed to update password', 'error');
+      } else {
+        showToast('Password updated successfully!');
+        setIsChangingPassword(false);
+        setPasswordForm({ currentPassword: '', newPassword: '' });
+      }
+    } catch (err) {
+      showToast('Network error while updating password', 'error');
+    }
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -138,8 +164,46 @@ const Profile = ({ currentUser, onLogout, onUpdateProfile, showToast }) => {
                   </div>
                 </div>
               </div>
+
+              {/* Change Password Card */}
+              <div className="profile-details-card" style={{ marginTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3>Security & Password</h3>
+                  <button onClick={() => setIsChangingPassword(!isChangingPassword)} style={{ background: 'none', border: 'none', color: 'var(--color-accent)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                    {isChangingPassword ? 'Cancel' : 'Change Password'}
+                  </button>
+                </div>
+
+                {isChangingPassword ? (
+                  <form onSubmit={handleChangePassword} style={{ marginTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <input 
+                      type="password" 
+                      placeholder="Current Password" 
+                      required 
+                      value={passwordForm.currentPassword} 
+                      onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} 
+                    />
+                    <input 
+                      type="password" 
+                      placeholder="New Password (min 6 chars)" 
+                      required 
+                      value={passwordForm.newPassword} 
+                      onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} 
+                    />
+                    <button type="submit" style={{ padding: '0.55rem', borderRadius: '4px', border: 'none', background: 'var(--color-accent)', color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                      Update Password
+                    </button>
+                  </form>
+                ) : (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--color-text-light)', margin: '0.4rem 0 0' }}>
+                    Password is secure and encrypted.
+                  </p>
+                )}
+              </div>
               
-              <button className="btn-secondary logout-btn" onClick={onLogout}>
+              <button className="btn-secondary logout-btn" onClick={onLogout} style={{ marginTop: '1.2rem' }}>
                 {t('profile.log_out')}
               </button>
             </>
