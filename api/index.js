@@ -475,7 +475,7 @@ app.post('/api/orders', async (req, res) => {
     }
 
     // --- DISCORD WEBHOOK INTEGRATION ---
-    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "https://discord.com/api/webhooks/1537478820385525811/G67kdt8xvifiEGEZZypckGVn0ZYTYPxna_MDIyLX2lfOG4Ea0apt0tyyIQJpDoznfLFn";
+    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL;
     if (discordWebhookUrl) {
       try {
         let shipObj = {};
