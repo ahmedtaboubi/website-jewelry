@@ -132,6 +132,8 @@
     "expiry_date": "تاريخ الانتهاء (MM/YY)",
     "cvc": "رمز الأمان",
     "order_summary": "ملخص الطلب",
+    "show_summary": "عرض ملخص الطلب",
+    "hide_summary": "إخفاء ملخص الطلب",
     "subtotal": "المجموع الفرعي",
     "shipping": "الشحن",
     "free": "مجاني",

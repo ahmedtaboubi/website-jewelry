@@ -132,6 +132,8 @@
     "expiry_date": "Expiry date (MM/YY)",
     "cvc": "CVC",
     "order_summary": "Order Summary",
+    "show_summary": "Show Order Summary",
+    "hide_summary": "Hide Order Summary",
     "subtotal": "Subtotal",
     "shipping": "Shipping",
     "free": "Free",
