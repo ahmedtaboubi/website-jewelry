@@ -7,7 +7,7 @@ import {
   CalendarDays, Sliders, ChevronRight, Info, CheckCircle2, Sun, Moon, HelpCircle,
   MapPin, Globe, ShieldCheck, ShieldAlert, Navigation, Layers, Boxes, Tag, Truck,
   Star, MessageSquare, ThumbsUp, CheckCircle, Check, XCircle, AlertCircle, Camera,
-  UserPlus, Key, Lock, UserCheck, Shield
+  UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -1466,8 +1466,53 @@ const AdminDashboard = ({ currentUser }) => {
   return (
     <div className="admin-dashboard container animate-fade-in">
       <div className="admin-header">
-        <h1>Admin Dashboard</h1>
-        <p>Manage your store content and customer orders here.</p>
+        <div className="admin-header-flex">
+          <div>
+            <h1>Admin Dashboard</h1>
+            <p>Manage your jewelry store content, live sales, and fulfillment.</p>
+          </div>
+        </div>
+
+        {/* Mobile Executive Quick Essential Glance Pills */}
+        <div className="admin-mobile-quick-bar">
+          <div className="mobile-quick-card revenue" onClick={() => setActiveTab('analytics')}>
+            <div className="mobile-quick-icon"><TrendingUp size={16} /></div>
+            <div className="mobile-quick-info">
+              <span className="mobile-quick-label">Total Revenue</span>
+              <span className="mobile-quick-val">{orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0).toFixed(0)} DH</span>
+            </div>
+          </div>
+
+          <div className="mobile-quick-card orders" onClick={() => setActiveTab('orders')}>
+            <div className="mobile-quick-icon"><ShoppingBag size={16} /></div>
+            <div className="mobile-quick-info">
+              <span className="mobile-quick-label">Orders ({orders.length})</span>
+              <span className="mobile-quick-val" style={{ color: orders.filter(o => o.status === 'Processing').length > 0 ? '#d97706' : '#059669' }}>
+                {orders.filter(o => o.status === 'Processing').length} Pending
+              </span>
+            </div>
+          </div>
+
+          <div className="mobile-quick-card stock" onClick={() => setActiveTab('products')}>
+            <div className="mobile-quick-icon"><Package size={16} /></div>
+            <div className="mobile-quick-info">
+              <span className="mobile-quick-label">Catalog ({products.length})</span>
+              <span className="mobile-quick-val" style={{ color: products.filter(p => (p.stock !== null && p.stock <= 5)).length > 0 ? '#dc2626' : '#059669' }}>
+                {products.filter(p => (p.stock !== null && p.stock <= 5)).length} Low Stock
+              </span>
+            </div>
+          </div>
+
+          <div className="mobile-quick-card reviews" onClick={() => { setActiveTab('reviews'); fetchAdminReviews(); }}>
+            <div className="mobile-quick-icon"><MessageSquare size={16} /></div>
+            <div className="mobile-quick-info">
+              <span className="mobile-quick-label">Reviews ({adminReviewCounts.total})</span>
+              <span className="mobile-quick-val" style={{ color: adminReviewCounts.pending > 0 ? '#d97706' : '#059669' }}>
+                {adminReviewCounts.pending} To Moderate
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="admin-tabs">
@@ -3466,7 +3511,8 @@ const AdminDashboard = ({ currentUser }) => {
               </div>
             </div>
             
-            <div className="table-responsive">
+            {/* Desktop Table View */}
+            <div className="table-responsive desktop-orders-table">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -3544,6 +3590,94 @@ const AdminDashboard = ({ currentUser }) => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Touch-Friendly Order Cards */}
+            <div className="mobile-orders-cards">
+              {orders.filter(o => {
+                const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+                const query = orderSearchQuery.toLowerCase().trim();
+                if (!query) return matchesStatus;
+                const nameMatch = (o.user_name || '').toLowerCase().includes(query);
+                const emailMatch = (o.user_email || '').toLowerCase().includes(query);
+                const phoneMatch = (o.customer_phone || '').toLowerCase().includes(query);
+                const idMatch = String(o.id).includes(query);
+                return matchesStatus && (nameMatch || emailMatch || phoneMatch || idMatch);
+              }).length === 0 ? (
+                <div className="no-mobile-orders">No orders found matching your search.</div>
+              ) : (
+                orders.filter(o => {
+                  const matchesStatus = statusFilter === 'All' || o.status === statusFilter;
+                  const query = orderSearchQuery.toLowerCase().trim();
+                  if (!query) return matchesStatus;
+                  const nameMatch = (o.user_name || '').toLowerCase().includes(query);
+                  const emailMatch = (o.user_email || '').toLowerCase().includes(query);
+                  const phoneMatch = (o.customer_phone || '').toLowerCase().includes(query);
+                  const idMatch = String(o.id).includes(query);
+                  return matchesStatus && (nameMatch || emailMatch || phoneMatch || idMatch);
+                }).map(order => (
+                  <div key={order.id} className="mobile-order-card">
+                    <div className="mobile-order-card-header">
+                      <div className="mobile-order-id-date">
+                        <span className="order-id">#{order.id}</span>
+                        <span className="order-date">{parseOrderDate(order.created_at).toLocaleDateString()} • {parseOrderDate(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <span className={`status-badge ${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                    </div>
+
+                    <div className="mobile-order-card-body">
+                      <div className="mobile-order-customer">
+                        <div className="customer-name">{order.user_name || 'Guest Customer'}</div>
+                        {order.customer_phone ? (
+                          <a href={`tel:${order.customer_phone}`} className="customer-phone-link">
+                            <Phone size={13} /> {order.customer_phone}
+                          </a>
+                        ) : (
+                          <div className="customer-sub">{order.user_email || 'No contact provided'}</div>
+                        )}
+                      </div>
+
+                      <div className="mobile-order-total-box">
+                        <span className="total-label">Total</span>
+                        <span className="total-amount">{Number(order.total).toFixed(2)} DH</span>
+                      </div>
+                    </div>
+
+                    {order.items && order.items.length > 0 && (
+                      <div className="mobile-order-items-preview">
+                        <span className="items-count-tag">{order.items.length} item{order.items.length > 1 ? 's' : ''}:</span>
+                        <div className="items-thumbnails">
+                          {order.items.slice(0, 4).map((it, idx) => (
+                            <img key={idx} src={it.image} alt={it.name} title={`${it.name} (x${it.quantity})`} />
+                          ))}
+                          {order.items.length > 4 && <span className="more-items">+{order.items.length - 4}</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mobile-order-card-actions">
+                      <button 
+                        className="btn-secondary mobile-details-btn" 
+                        onClick={() => setSelectedOrder(order)}
+                      >
+                        View Details
+                      </button>
+                      <select 
+                        className="status-select mobile-status-select"
+                        value={order.status}
+                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                      >
+                        <option value="Processing">Processing</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
