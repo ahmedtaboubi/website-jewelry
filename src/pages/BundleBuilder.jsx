@@ -158,17 +158,12 @@ const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
   return (
     <div className="bundle-page animate-fade-in">
       
-      {/* Hero Title (Not sticky) */}
+      {/* Hero & Size Options (Normal Flow / Not Sticky) */}
       <div className="bundle-hero">
         <div className="container text-center">
           <h1 className="section-title">{t('bundle_builder.compose')}</h1>
-        </div>
-      </div>
+          <p className="bundle-hero-subtitle">Select 2 or more pieces to build your custom jewelry stack with exclusive savings.</p>
 
-      {/* Sticky Top Bar (Contains size selector and slots) */}
-      <div className={`bundle-sticky-bar ${isScrolled ? 'is-scrolled' : ''}`}>
-        <div className="container">
-          
           <div className="bundle-size-options">
             <div className={`size-option ${bundleSize === 2 ? 'active' : ''}`} onClick={() => handleSizeChange(2)}>
               <h3>{t('bundle_builder.pieces_2')}</h3>
@@ -187,7 +182,12 @@ const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
               <div className="size-discount">{t('bundle_builder.off_20')}</div>
             </div>
           </div>
+        </div>
+      </div>
 
+      {/* Sticky Selected Products Portion */}
+      <div className={`bundle-sticky-bar ${isScrolled ? 'is-scrolled' : ''}`}>
+        <div className="container">
           <div className="bundle-bar-content">
             <div className="bundle-progress">
               <h3 key={qty} className="progress-title">{progressMessage}</h3>
@@ -198,7 +198,7 @@ const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
               {Array.from({ length: totalSlots }).map((_, i) => (
                 <div key={i} className={`bundle-slot ${i < qty ? 'filled' : ''}`} onClick={() => i < qty && handleRemoveItem(i)}>
                   {i < qty ? (
-                    <img src={selectedItems[i].image} alt="Selected" />
+                    <img src={selectedItems[i].image} alt={selectedItems[i].name || "Selected"} />
                   ) : (
                     <span>+</span>
                   )}
