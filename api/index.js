@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createClient } from '@libsql/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const app = express();
 app.use(cors());
