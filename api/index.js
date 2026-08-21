@@ -182,9 +182,7 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
 const sendResetEmail = async (toEmail, userName, resetToken) => {
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
-  const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-  const smtpFrom = process.env.SMTP_FROM || `"Aura Jewelry" <${smtpUser || 'noreply@website-jewelry.com'}>`;
+  const smtpFrom = process.env.SMTP_FROM || 'Aura Jewelry <onboarding@resend.dev>';
   const resendApiKey = process.env.RESEND_API_KEY;
 
   const resetLink = `https://website-jewelry.vercel.app/reset-password?token=${resetToken}`;
