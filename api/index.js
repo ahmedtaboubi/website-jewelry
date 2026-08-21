@@ -178,6 +178,80 @@ app.put('/api/users/:id', verifyToken, async (req, res) => {
   }
 });
 
+// Email Sender Helper for Password Resets
+const sendResetEmail = async (toEmail, userName, resetToken) => {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
+  const smtpFrom = process.env.SMTP_FROM || `"Aura Jewelry" <${smtpUser || 'noreply@website-jewelry.com'}>`;
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  const resetLink = `https://website-jewelry.vercel.app/reset-password?token=${resetToken}`;
+
+  const emailHtml = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #eae6de; border-radius: 12px; background: #fafaf8; color: #141414;">
+      <h2 style="font-family: Georgia, serif; color: #141414; margin-top: 0;">Reset Your Password</h2>
+      <p style="font-size: 15px; line-height: 1.5; color: #444;">Hello ${userName || 'Valued Customer'},</p>
+      <p style="font-size: 15px; line-height: 1.5; color: #444;">We received a request to reset the password for your Aura Jewelry account. Click the button below to set a new password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background-color: #141414; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 14px; display: inline-block; letter-spacing: 0.5px;">Reset My Password</a>
+      </div>
+      <p style="font-size: 13px; color: #666; line-height: 1.5;">Or copy and paste this link in your browser:<br/><a href="${resetLink}" style="color: #b89058;">${resetLink}</a></p>
+      <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">This link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+    </div>
+  `;
+
+  // 1. If Resend API Key is provided
+  if (resendApiKey) {
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: smtpFrom.includes('<') ? smtpFrom : `Aura Jewelry <${smtpFrom}>`,
+          to: [toEmail],
+          subject: 'Reset Your Aura Jewelry Password',
+          html: emailHtml
+        })
+      });
+      console.log(`Password reset email dispatched via Resend to ${toEmail}`);
+      return;
+    } catch (e) {
+      console.error('Resend email error:', e);
+    }
+  }
+
+  // 2. If SMTP is configured
+  if (smtpUser && smtpPass) {
+    try {
+      const nodemailerModule = await import('nodemailer');
+      const transporter = nodemailerModule.default.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPass }
+      });
+
+      await transporter.sendMail({
+        from: smtpFrom,
+        to: toEmail,
+        subject: 'Reset Your Aura Jewelry Password',
+        html: emailHtml
+      });
+      console.log(`Password reset email sent via SMTP to ${toEmail}`);
+      return;
+    } catch (e) {
+      console.error('SMTP email error:', e);
+    }
+  }
+
+  console.log(`[EMAIL NOTICE] Password reset token generated for ${toEmail}: ${resetLink}`);
+};
+
 // 6a. POST /api/auth/forgot-password
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
@@ -194,7 +268,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     if (result.rows.length === 0) {
       // Safe response to prevent account enumeration
-      return res.json({ message: 'If that email is registered, password reset instructions have been generated.' });
+      return res.json({ message: 'If that email is registered, password reset instructions have been sent to your email.' });
     }
 
     const user = result.rows[0];
@@ -206,23 +280,11 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       args: [resetToken, expiry, user.id]
     });
 
-    // Notify on Discord if webhook configured
-    const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || 'https://discord.com/api/webhooks/1537478820385525811/G67kdt8xvifiEGEZZypckGVn0ZYTYPxna_MDIyLX2lfOG4Ea0apt0tyyIQJpDoznfLFn';
-    if (discordWebhookUrl) {
-      try {
-        const resetLink = `https://website-jewelry.vercel.app/reset-password?token=${resetToken}`;
-        fetch(discordWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: `🔑 **PASSWORD RESET REQUESTED**\n**User:** ${user.name || 'Customer'} (${user.email})\n**Reset Link:** ${resetLink}\n*Token valid for 1 hour.*`
-          })
-        }).catch(err => console.error('Failed to send Discord reset alert:', err));
-      } catch (err) {}
-    }
+    // Send dedicated email directly to the user's inbox
+    sendResetEmail(user.email, user.name, resetToken).catch(err => console.error('Email dispatch error:', err));
 
     res.json({ 
-      message: 'If that email is registered, password reset instructions have been generated.',
+      message: `Password reset instructions have been sent to ${user.email}. Please check your inbox and spam folder.`,
       resetToken
     });
   } catch (error) {
