@@ -85,7 +85,7 @@
 
 .bundle-sticky-bar {
   position: sticky;
-  top: 65px; /* Sits right below the navbar */
+  top: 70px; /* Sits right below the desktop navbar */
   left: 0;
   width: 100%;
   background: rgba(255, 255, 255, 0.95);
@@ -357,7 +357,7 @@
   /* Sticky Selected Products Portion on Mobile */
   .bundle-sticky-bar {
     position: sticky;
-    top: 58px; /* Sits right beneath the mobile navbar */
+    top: 65px; /* Sits right beneath the mobile navbar */
     background: rgba(255, 255, 255, 0.97);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
