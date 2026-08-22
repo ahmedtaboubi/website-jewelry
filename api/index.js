@@ -648,10 +648,28 @@ app.get('/api/products/:id/reviews', async (req, res) => {
       return { ...r, images: imgList };
     });
 
-    res.json(parsed);
+    const total = parsed.length;
+    const avg = total > 0 ? (parsed.reduce((acc, r) => acc + (parseInt(r.rating, 10) || 5), 0) / total) : 5.0;
+    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    parsed.forEach(r => {
+      const rat = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 5));
+      distribution[rat] = (distribution[rat] || 0) + 1;
+    });
+
+    res.json({
+      reviews: parsed,
+      stats: {
+        totalReviews: total,
+        averageRating: parseFloat(avg.toFixed(1)),
+        distribution
+      }
+    });
   } catch (error) {
     console.error('Error fetching product reviews:', error);
-    res.json([]);
+    res.json({
+      reviews: [],
+      stats: { totalReviews: 0, averageRating: 0, distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } }
+    });
   }
 });
 
@@ -866,25 +884,70 @@ app.delete('/api/admin/team/:id', async (req, res) => {
 app.get('/api/admin/reviews', async (req, res) => {
   try {
     const status = req.query.status;
-    let result;
+    const search = req.query.search;
+
+    const countsResult = await turso.execute(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN status = 'approved' OR status IS NULL THEN 1 ELSE 0 END) as approved,
+        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+      FROM reviews
+    `);
+    const cRow = countsResult.rows[0] || {};
+    const counts = {
+      total: Number(cRow.total) || 0,
+      pending: Number(cRow.pending) || 0,
+      approved: Number(cRow.approved) || 0,
+      rejected: Number(cRow.rejected) || 0
+    };
+
+    let sql = `SELECT reviews.*, products.name as product_name, products.image as product_image 
+               FROM reviews 
+               LEFT JOIN products ON reviews.product_id = products.id`;
+    const whereClauses = [];
+    const args = [];
+
     if (status && status !== 'all') {
-      result = await turso.execute({
-        sql: `SELECT reviews.*, products.name as product_name, products.image as product_image 
-              FROM reviews 
-              LEFT JOIN products ON reviews.product_id = products.id 
-              WHERE reviews.status = ? 
-              ORDER BY reviews.created_at DESC`,
-        args: [status]
-      });
-    } else {
-      result = await turso.execute(`
-        SELECT reviews.*, products.name as product_name, products.image as product_image 
-        FROM reviews 
-        LEFT JOIN products ON reviews.product_id = products.id 
-        ORDER BY reviews.created_at DESC
-      `);
+      whereClauses.push(`reviews.status = ?`);
+      args.push(status);
     }
-    res.json(result.rows);
+
+    if (search && search.trim()) {
+      whereClauses.push(`(reviews.author_name LIKE ? OR reviews.comment LIKE ? OR reviews.title LIKE ? OR products.name LIKE ?)`);
+      const s = `%${search.trim()}%`;
+      args.push(s, s, s, s);
+    }
+
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ` + whereClauses.join(' AND ');
+    }
+
+    sql += ` ORDER BY reviews.created_at DESC`;
+
+    const result = await turso.execute({ sql, args });
+
+    const parsed = result.rows.map(r => {
+      let imgList = [];
+      if (r.images) {
+        try {
+          imgList = typeof r.images === 'string' ? JSON.parse(r.images) : (Array.isArray(r.images) ? r.images : [r.images]);
+        } catch(e) {
+          imgList = [r.images];
+        }
+      }
+      return { 
+        ...r, 
+        author: r.author_name || r.author || 'Client vérifié',
+        author_name: r.author_name || r.author || 'Client vérifié',
+        images: imgList 
+      };
+    });
+
+    res.json({
+      reviews: parsed,
+      counts
+    });
   } catch (error) {
     console.error('Fetch admin reviews error:', error);
     res.status(500).json({ error: 'Failed to fetch reviews' });

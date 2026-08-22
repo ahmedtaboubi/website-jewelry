@@ -99,8 +99,20 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
       const res = await fetch(`/api/products/${productId}/reviews`);
       if (res.ok) {
         const data = await res.json();
-        setReviews(data.reviews || []);
-        setReviewStats(data.stats || { totalReviews: 0, averageRating: 0, distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } });
+        const reviewsList = Array.isArray(data) ? data : (data.reviews || []);
+        setReviews(reviewsList);
+        if (data.stats) {
+          setReviewStats(data.stats);
+        } else {
+          const total = reviewsList.length;
+          const avg = total > 0 ? (reviewsList.reduce((acc, r) => acc + (parseInt(r.rating, 10) || 5), 0) / total) : 5.0;
+          const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+          reviewsList.forEach(r => {
+            const rat = Math.min(5, Math.max(1, parseInt(r.rating, 10) || 5));
+            distribution[rat] = (distribution[rat] || 0) + 1;
+          });
+          setReviewStats({ totalReviews: total, averageRating: parseFloat(avg.toFixed(1)), distribution });
+        }
       }
     } catch (err) {
       console.error('Failed to load product reviews:', err);
