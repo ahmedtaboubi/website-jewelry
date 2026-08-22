@@ -401,6 +401,7 @@ const AdminDashboard = ({ currentUser }) => {
   useEffect(() => {
     fetchProducts();
     fetchIngredients();
+    fetchOrders();
 
     if (currentUser?.is_admin) {
       fetchOrders();
@@ -3724,7 +3725,7 @@ const AdminDashboard = ({ currentUser }) => {
                   <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '500' }}>Shipped & Delivered (Sold)</span>
                   <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#2563eb' }}>
                     {orders
-                      .filter(o => o.status === 'delivered' || o.status === 'shipped')
+                      .filter(o => (o.status || '').toLowerCase() === 'delivered' || (o.status || '').toLowerCase() === 'shipped')
                       .reduce((acc, o) => acc + (Array.isArray(o.items) ? o.items.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0) : 1), 0)} units
                   </div>
                 </div>
@@ -3746,7 +3747,7 @@ const AdminDashboard = ({ currentUser }) => {
                   <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '500' }}>Reserved in Processing</span>
                   <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#d97706' }}>
                     {orders
-                      .filter(o => o.status === 'processing' || o.status === 'pending' || !o.status)
+                      .filter(o => !o.status || (o.status || '').toLowerCase() === 'processing' || (o.status || '').toLowerCase() === 'pending')
                       .reduce((acc, o) => acc + (Array.isArray(o.items) ? o.items.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0) : 1), 0)} units
                   </div>
                 </div>
@@ -3877,7 +3878,7 @@ const AdminDashboard = ({ currentUser }) => {
                       const stockVal = prod.stock !== undefined && prod.stock !== null ? prod.stock : 50;
                       
                       const soldVal = orders
-                        .filter(o => o.status === 'delivered' || o.status === 'shipped')
+                        .filter(o => (o.status || '').toLowerCase() === 'delivered' || (o.status || '').toLowerCase() === 'shipped')
                         .reduce((acc, o) => {
                           const items = Array.isArray(o.items) ? o.items : [];
                           const matched = items.filter(item => 
@@ -3889,7 +3890,7 @@ const AdminDashboard = ({ currentUser }) => {
                         }, 0);
 
                       const reservedVal = orders
-                        .filter(o => o.status === 'processing' || o.status === 'pending' || !o.status)
+                        .filter(o => !o.status || (o.status || '').toLowerCase() === 'processing' || (o.status || '').toLowerCase() === 'pending')
                         .reduce((acc, o) => {
                           const items = Array.isArray(o.items) ? o.items : [];
                           const matched = items.filter(item => 
