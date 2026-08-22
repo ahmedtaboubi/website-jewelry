@@ -617,11 +617,40 @@ app.get('/api/ingredients', async (req, res) => {
 app.get('/api/products/:id/reviews', async (req, res) => {
   try {
     const result = await turso.execute({
-      sql: 'SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC',
+      sql: `SELECT id, product_id, 
+                   COALESCE(author_name, author, 'Client vérifié') as author,
+                   COALESCE(author_name, author, 'Client vérifié') as author_name,
+                   author_email,
+                   rating,
+                   COALESCE(title, '') as title,
+                   comment,
+                   COALESCE(verified_purchase, 1) as verified_purchase,
+                   COALESCE(helpful_count, 0) as helpful_count,
+                   COALESCE(helpful_count, 0) as helpful,
+                   images,
+                   status,
+                   created_at
+            FROM reviews 
+            WHERE product_id = ? AND (status = 'approved' OR status IS NULL)
+            ORDER BY created_at DESC`,
       args: [req.params.id]
     });
-    res.json(result.rows);
+    
+    const parsed = result.rows.map(r => {
+      let imgList = [];
+      if (r.images) {
+        try {
+          imgList = typeof r.images === 'string' ? JSON.parse(r.images) : (Array.isArray(r.images) ? r.images : [r.images]);
+        } catch(e) {
+          imgList = [r.images];
+        }
+      }
+      return { ...r, images: imgList };
+    });
+
+    res.json(parsed);
   } catch (error) {
+    console.error('Error fetching product reviews:', error);
     res.json([]);
   }
 });
@@ -629,15 +658,38 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 // 12. POST /api/reviews
 app.post('/api/reviews', async (req, res) => {
   try {
-    const { productId, author, rating, comment } = req.body;
-    await turso.execute({
-      sql: 'INSERT INTO reviews (product_id, author, rating, comment) VALUES (?, ?, ?, ?)',
-      args: [productId, author || 'Anonymous', rating || 5, comment || '']
+    const { productId, authorName, author, authorEmail, rating, title, comment, images, userId } = req.body;
+    const name = authorName || author || 'Client vérifié';
+    const email = authorEmail || '';
+    const rRating = parseInt(rating, 10) || 5;
+    const rTitle = title || '';
+    const rComment = comment || '';
+    const imgString = images && Array.isArray(images) ? JSON.stringify(images) : (images || '');
+
+    const result = await turso.execute({
+      sql: `INSERT INTO reviews (product_id, author, author_name, author_email, rating, title, comment, status, verified_purchase, helpful_count, images, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 1, 0, ?, ?)`,
+      args: [productId, name, name, email, rRating, rTitle, rComment, imgString, userId || null]
     });
-    res.status(201).json({ message: 'Review submitted successfully' });
+
+    res.status(201).json({ message: 'Review submitted successfully', reviewId: result.lastInsertRowid });
   } catch (error) {
     console.error('Error creating review:', error);
     res.status(500).json({ error: 'Failed to submit review' });
+  }
+});
+
+// 12b. POST /api/reviews/:id/helpful
+app.post('/api/reviews/:id/helpful', async (req, res) => {
+  try {
+    await turso.execute({
+      sql: 'UPDATE reviews SET helpful_count = COALESCE(helpful_count, 0) + 1 WHERE id = ?',
+      args: [req.params.id]
+    });
+    res.json({ message: 'Review marked as helpful' });
+  } catch (error) {
+    console.error('Helpful vote error:', error);
+    res.status(500).json({ error: 'Failed to record helpful vote' });
   }
 });
 
