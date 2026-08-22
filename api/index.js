@@ -672,7 +672,7 @@ app.post('/api/reviews', async (req, res) => {
       args: [productId, name, name, email, rRating, rTitle, rComment, imgString, userId || null]
     });
 
-    res.status(201).json({ message: 'Review submitted successfully', reviewId: result.lastInsertRowid });
+    res.status(201).json({ message: 'Review submitted successfully', reviewId: Number(result.lastInsertRowid) });
   } catch (error) {
     console.error('Error creating review:', error);
     res.status(500).json({ error: 'Failed to submit review' });
