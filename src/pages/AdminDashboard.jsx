@@ -3691,7 +3691,12 @@ const AdminDashboard = ({ currentUser }) => {
 
             {/* Real-World Inventory Overview Stat Cards */}
             <div className="inventory-stats-grid">
-              <div className="inventory-stat-card">
+              <div 
+                className={`inventory-stat-card ${productStockFilter === 'all' ? 'active-card' : ''}`}
+                onClick={() => setProductStockFilter('all')}
+                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                title="Click to view all products"
+              >
                 <div className="inventory-icon-box" style={{ background: '#ecfdf5', color: '#059669' }}>
                   <Boxes size={22} />
                 </div>
@@ -3703,7 +3708,15 @@ const AdminDashboard = ({ currentUser }) => {
                 </div>
               </div>
 
-              <div className="inventory-stat-card">
+              <div 
+                className="inventory-stat-card"
+                onClick={() => {
+                  setActiveTab('orders');
+                  setOrderStatusFilter('shipped');
+                }}
+                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                title="Click to view Shipped & Delivered orders"
+              >
                 <div className="inventory-icon-box" style={{ background: '#eff6ff', color: '#2563eb' }}>
                   <Truck size={22} />
                 </div>
@@ -3717,7 +3730,15 @@ const AdminDashboard = ({ currentUser }) => {
                 </div>
               </div>
 
-              <div className="inventory-stat-card">
+              <div 
+                className="inventory-stat-card"
+                onClick={() => {
+                  setActiveTab('orders');
+                  setOrderStatusFilter('processing');
+                }}
+                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                title="Click to view Processing orders"
+              >
                 <div className="inventory-icon-box" style={{ background: '#fef3c7', color: '#d97706' }}>
                   <Clock size={22} />
                 </div>
@@ -3731,7 +3752,12 @@ const AdminDashboard = ({ currentUser }) => {
                 </div>
               </div>
 
-              <div className="inventory-stat-card">
+              <div 
+                className={`inventory-stat-card ${productStockFilter === 'low_stock' ? 'active-card' : ''}`}
+                onClick={() => setProductStockFilter('low_stock')}
+                style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                title="Click to filter Low / Out of Stock SKUs"
+              >
                 <div className="inventory-icon-box" style={{ background: '#fef2f2', color: '#dc2626' }}>
                   <ShieldAlert size={22} />
                 </div>
