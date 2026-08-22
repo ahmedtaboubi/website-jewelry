@@ -3710,7 +3710,9 @@ const AdminDashboard = ({ currentUser }) => {
                 <div>
                   <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '500' }}>Shipped & Delivered (Sold)</span>
                   <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#2563eb' }}>
-                    {products.reduce((acc, p) => acc + (p.units_sold || 0), 0)} units
+                    {orders
+                      .filter(o => o.status === 'delivered' || o.status === 'shipped')
+                      .reduce((acc, o) => acc + (Array.isArray(o.items) ? o.items.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0) : 1), 0)} units
                   </div>
                 </div>
               </div>
@@ -3722,7 +3724,9 @@ const AdminDashboard = ({ currentUser }) => {
                 <div>
                   <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '500' }}>Reserved in Processing</span>
                   <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#d97706' }}>
-                    {products.reduce((acc, p) => acc + (p.units_reserved || 0), 0)} units
+                    {orders
+                      .filter(o => o.status === 'processing' || o.status === 'pending' || !o.status)
+                      .reduce((acc, o) => acc + (Array.isArray(o.items) ? o.items.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0) : 1), 0)} units
                   </div>
                 </div>
               </div>
