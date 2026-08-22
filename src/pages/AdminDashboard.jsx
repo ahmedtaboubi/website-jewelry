@@ -3875,8 +3875,30 @@ const AdminDashboard = ({ currentUser }) => {
                       return matchesSearch && matchesStock;
                     }).map(prod => {
                       const stockVal = prod.stock !== undefined && prod.stock !== null ? prod.stock : 50;
-                      const soldVal = prod.units_sold || 0;
-                      const reservedVal = prod.units_reserved || 0;
+                      
+                      const soldVal = orders
+                        .filter(o => o.status === 'delivered' || o.status === 'shipped')
+                        .reduce((acc, o) => {
+                          const items = Array.isArray(o.items) ? o.items : [];
+                          const matched = items.filter(item => 
+                            item.id === prod.id || 
+                            item.product_id === prod.id || 
+                            (item.name || item.product_name || '').toLowerCase().trim() === (prod.name || '').toLowerCase().trim()
+                          );
+                          return acc + matched.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0);
+                        }, 0);
+
+                      const reservedVal = orders
+                        .filter(o => o.status === 'processing' || o.status === 'pending' || !o.status)
+                        .reduce((acc, o) => {
+                          const items = Array.isArray(o.items) ? o.items : [];
+                          const matched = items.filter(item => 
+                            item.id === prod.id || 
+                            item.product_id === prod.id || 
+                            (item.name || item.product_name || '').toLowerCase().trim() === (prod.name || '').toLowerCase().trim()
+                          );
+                          return acc + matched.reduce((iAcc, item) => iAcc + (parseInt(item.quantity, 10) || 1), 0);
+                        }, 0);
 
                       return (
                         <tr key={prod.id}>
