@@ -847,6 +847,7 @@ app.get('/api/admin/customers', async (req, res) => {
     const ordersRes = await turso.execute(`
       SELECT id, user_id, total, status, shipping_details, created_at 
       FROM orders
+      ORDER BY id DESC
     `);
 
     // Strictly filter out staff / admin accounts
@@ -859,14 +860,17 @@ app.get('/api/admin/customers', async (req, res) => {
       return true;
     });
 
-    // Build customer aggregation
-    const customers = customerOnlyUsers.map(user => {
+    const registeredEmails = new Set(customerOnlyUsers.map(u => (u.email || '').trim().toLowerCase()).filter(Boolean));
+    const registeredUserIds = new Set(customerOnlyUsers.map(u => Number(u.id)));
+
+    // 1. Process Registered Customers
+    const registeredCustomerList = customerOnlyUsers.map(user => {
       const userOrders = ordersRes.rows.filter(o => {
         if (o.user_id && Number(o.user_id) === Number(user.id)) return true;
         if (o.shipping_details) {
           try {
             const ship = typeof o.shipping_details === 'string' ? JSON.parse(o.shipping_details) : o.shipping_details;
-            if (ship?.email && ship.email.toLowerCase() === user.email.toLowerCase()) return true;
+            if (ship?.email && ship.email.trim().toLowerCase() === (user.email || '').trim().toLowerCase()) return true;
           } catch(e) {}
         }
         return false;
@@ -898,8 +902,8 @@ app.get('/api/admin/customers', async (req, res) => {
         city: recentCity,
         address: recentAddress,
         zipCode: user.zipCode || '',
-        role: user.role || (user.is_admin ? 'admin' : 'customer'),
-        is_admin: user.is_admin || 0,
+        role: 'customer',
+        account_type: 'registered',
         orders_count: userOrders.length,
         total_spent: totalSpent,
         last_order_date: lastOrder ? lastOrder.created_at : null,
@@ -907,7 +911,67 @@ app.get('/api/admin/customers', async (req, res) => {
       };
     });
 
-    res.json({ customers });
+    // 2. Discover Guest Checkout Buyers
+    const guestMap = new Map();
+
+    ordersRes.rows.forEach(order => {
+      const orderUserId = order.user_id ? Number(order.user_id) : null;
+      let shipping = null;
+      if (order.shipping_details) {
+        try {
+          shipping = typeof order.shipping_details === 'string' ? JSON.parse(order.shipping_details) : order.shipping_details;
+        } catch(e) {}
+      }
+
+      const email = shipping?.email ? shipping.email.trim().toLowerCase() : '';
+      const phone = shipping?.phone ? shipping.phone.trim() : '';
+
+      // Skip if order belongs to an already registered user
+      if (orderUserId && registeredUserIds.has(orderUserId)) return;
+      if (email && registeredEmails.has(email)) return;
+
+      // Filter out admin email if admin tested checkout
+      if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(email)) return;
+
+      const guestKey = email || phone || `guest_${order.id}`;
+
+      if (!guestMap.has(guestKey)) {
+        guestMap.set(guestKey, {
+          id: `G-${order.id}`,
+          name: shipping?.name || shipping?.fullName || (email ? email.split('@')[0] : 'Guest Buyer'),
+          email: email || 'No email provided',
+          phone: phone,
+          city: shipping?.city || '',
+          address: shipping?.address || '',
+          zipCode: shipping?.zipCode || shipping?.postalCode || '',
+          role: 'customer',
+          account_type: 'guest',
+          orders_count: 0,
+          total_spent: 0,
+          last_order_date: order.created_at,
+          created_at: order.created_at
+        });
+      }
+
+      const guestProfile = guestMap.get(guestKey);
+      guestProfile.orders_count += 1;
+      guestProfile.total_spent += parseFloat(order.total) || 0;
+      if (new Date(order.created_at || 0) >= new Date(guestProfile.last_order_date || 0)) {
+        guestProfile.last_order_date = order.created_at;
+        if (shipping?.city) guestProfile.city = shipping.city;
+        if (shipping?.phone) guestProfile.phone = shipping.phone;
+        if (shipping?.address) guestProfile.address = shipping.address;
+        if (shipping?.name || shipping?.fullName) guestProfile.name = shipping?.name || shipping?.fullName;
+      }
+      if (new Date(order.created_at || 0) < new Date(guestProfile.created_at || 0)) {
+        guestProfile.created_at = order.created_at;
+      }
+    });
+
+    const guestCustomerList = Array.from(guestMap.values());
+    const combinedCustomers = [...registeredCustomerList, ...guestCustomerList];
+
+    res.json({ customers: combinedCustomers });
   } catch (error) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: 'Failed to fetch customer list' });
