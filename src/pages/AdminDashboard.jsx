@@ -35,7 +35,9 @@ const AdminDashboard = ({ currentUser }) => {
   const [customers, setCustomers] = useState([]);
   const [isCustomersLoading, setIsCustomersLoading] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
-  const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all'); // 'all', 'buyers', 'vip', 'leads'
+  const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all'); // 'all', 'buyers', 'vip', 'top_spenders', 'leads'
+  const [customerCityFilter, setCustomerCityFilter] = useState('all');
+  const [customerSortBy, setCustomerSortBy] = useState('spend_desc'); // 'spend_desc', 'orders_desc', 'newest', 'oldest', 'name_asc'
   const [selectedCustomerForOrders, setSelectedCustomerForOrders] = useState(null);
 
   const fetchCustomers = async () => {
@@ -51,6 +53,55 @@ const AdminDashboard = ({ currentUser }) => {
     } finally {
       setIsCustomersLoading(false);
     }
+  };
+
+  const handleExportCustomersCSV = (listToExport) => {
+    const dataList = listToExport && listToExport.length > 0 ? listToExport : customers;
+    if (dataList.length === 0) {
+      showToast('No customer data to export', 'error');
+      return;
+    }
+
+    const headers = [
+      'Customer ID',
+      'Full Name',
+      'Email Address',
+      'Phone Number',
+      'City',
+      'Delivery Address',
+      'Role',
+      'Total Orders Placed',
+      'Lifetime Spend (DH)',
+      'Last Order Date',
+      'Registration Date'
+    ];
+
+    const rows = dataList.map(c => [
+      c.id,
+      `"${(c.name || '').replace(/"/g, '""')}"`,
+      `"${(c.email || '').replace(/"/g, '""')}"`,
+      `"${(c.phone || '').replace(/"/g, '""')}"`,
+      `"${(c.city || '').replace(/"/g, '""')}"`,
+      `"${(c.address || '').replace(/"/g, '""')}"`,
+      c.role || (c.is_admin ? 'Admin' : 'Customer'),
+      c.orders_count || 0,
+      (c.total_spent || 0).toFixed(2),
+      c.last_order_date ? new Date(c.last_order_date).toISOString().split('T')[0] : 'N/A',
+      c.created_at ? new Date(c.created_at).toISOString().split('T')[0] : 'N/A'
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `customers_export_${customerSegmentFilter}_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Successfully exported ${dataList.length} customers to CSV!`);
   };
 
   // --- ADMIN TEAM MANAGEMENT & PERMISSIONS STATE ---
@@ -4556,134 +4607,30 @@ const AdminDashboard = ({ currentUser }) => {
         {/* --- CUSTOMERS & CRM DIRECTORY PANEL --- */}
         {activeTab === 'customers' && hasPermission('customers') && (
           <div className="admin-panel animate-fade-in">
-            <div className="admin-panel-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h2>👥 Customer Directory & CRM Intelligence</h2>
-                <p>Track all registered customer accounts, contact details, purchase history, and lifetime value.</p>
-              </div>
-              <div style={{ display: 'flex', gap: '0.6rem' }}>
-                <button 
-                  className="btn-secondary" 
-                  onClick={() => fetchCustomers()}
-                  disabled={isCustomersLoading}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                >
-                  <RotateCw size={16} className={isCustomersLoading ? 'animate-spin' : ''} /> Refresh
-                </button>
-              </div>
-            </div>
-
-            {/* Customer KPI Metric Cards */}
             {(() => {
-              const totalSpentAll = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0);
-              const repeatBuyers = customers.filter(c => (c.orders_count || 0) > 1);
-              const buyersOnly = customers.filter(c => (c.orders_count || 0) > 0);
-              const repeatRate = buyersOnly.length > 0 ? ((repeatBuyers.length / buyersOnly.length) * 100).toFixed(0) : 0;
-              const topCityMap = {};
+              // Compute unique cities for the city filter dropdown
+              const cityCounts = {};
               customers.forEach(c => {
-                if (c.city && c.city.trim()) {
-                  topCityMap[c.city.trim()] = (topCityMap[c.city.trim()] || 0) + 1;
+                const ct = (c.city || '').trim();
+                if (ct) {
+                  cityCounts[ct] = (cityCounts[ct] || 0) + 1;
                 }
               });
-              const topCityName = Object.keys(topCityMap).sort((a,b) => topCityMap[b] - topCityMap[a])[0] || 'Casablanca';
+              const uniqueCities = Object.keys(cityCounts).sort((a, b) => cityCounts[b] - cityCounts[a]);
 
-              return (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>Total Registered</span>
-                      <Users size={18} color="#0f172a" />
-                    </div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#0f172a', marginTop: '0.4rem' }}>
-                      {customers.length}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Customer profiles in database</div>
-                  </div>
-
-                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#047857' }}>Customer Lifetime Value</span>
-                      <DollarSign size={18} color="#059669" />
-                    </div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#065f46', marginTop: '0.4rem' }}>
-                      {totalSpentAll.toLocaleString()} DH
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#047857' }}>Total revenue across all customers</div>
-                  </div>
-
-                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '1.2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1d4ed8' }}>Repeat Buyers</span>
-                      <Repeat size={18} color="#2563eb" />
-                    </div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#1e40af', marginTop: '0.4rem' }}>
-                      {repeatBuyers.length} <span style={{ fontSize: '1rem', fontWeight: '600', color: '#3b82f6' }}>({repeatRate}%)</span>
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>Customers with 2+ orders</div>
-                  </div>
-
-                  <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '1.2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#7e22ce' }}>Top Hub City</span>
-                      <MapPin size={18} color="#9333ea" />
-                    </div>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#6b21a8', marginTop: '0.4rem' }}>
-                      {topCityName}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#7e22ce' }}>Highest customer concentration</div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Filter & Search Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', background: '#fff', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: '1', minWidth: '260px' }}>
-                <Filter size={16} color="#64748b" />
-                <input 
-                  type="text"
-                  placeholder="Search by customer name, email, phone, city..."
-                  value={customerSearchQuery}
-                  onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                  style={{ width: '100%', padding: '0.55rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                {[
-                  { id: 'all', label: 'All Customers' },
-                  { id: 'buyers', label: 'Buyers (≥ 1 Order)' },
-                  { id: 'vip', label: 'VIP Repeat (≥ 2 Orders)' },
-                  { id: 'leads', label: 'Leads (0 Orders)' }
-                ].map((seg) => (
-                  <button
-                    key={seg.id}
-                    onClick={() => setCustomerSegmentFilter(seg.id)}
-                    style={{
-                      padding: '0.45rem 0.85rem',
-                      borderRadius: '20px',
-                      fontSize: '0.78rem',
-                      fontWeight: '600',
-                      border: customerSegmentFilter === seg.id ? '1px solid #0f172a' : '1px solid #e2e8f0',
-                      background: customerSegmentFilter === seg.id ? '#0f172a' : '#fff',
-                      color: customerSegmentFilter === seg.id ? '#fff' : '#475569',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    {seg.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Customers Table */}
-            {(() => {
-              const filteredCustomers = customers.filter(c => {
+              // Multi-criteria filtering
+              let filteredCustomers = customers.filter(c => {
                 // Segment filter
                 if (customerSegmentFilter === 'buyers' && (c.orders_count || 0) < 1) return false;
                 if (customerSegmentFilter === 'vip' && (c.orders_count || 0) < 2) return false;
+                if (customerSegmentFilter === 'top_spenders' && (c.total_spent || 0) < 1000) return false;
                 if (customerSegmentFilter === 'leads' && (c.orders_count || 0) > 0) return false;
+
+                // City filter
+                if (customerCityFilter !== 'all') {
+                  const custCity = (c.city || '').trim().toLowerCase();
+                  if (custCity !== customerCityFilter.toLowerCase()) return false;
+                }
 
                 // Search query
                 if (customerSearchQuery.trim()) {
@@ -4698,138 +4645,332 @@ const AdminDashboard = ({ currentUser }) => {
                 return true;
               });
 
-              return (
-                <div className="admin-table-container">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Customer Profile</th>
-                        <th>Email Address</th>
-                        <th>Phone & WhatsApp</th>
-                        <th>City & Shipping Address</th>
-                        <th>Order History</th>
-                        <th>Lifetime Spend (LTV)</th>
-                        <th>Registered</th>
-                        <th style={{ textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCustomers.length === 0 ? (
-                        <tr>
-                          <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
-                            {customerSearchQuery ? 'No customer profiles found matching your search.' : 'No registered customers yet.'}
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredCustomers.map((cust) => {
-                          const isStaff = cust.role === 'admin' || cust.role === 'super_admin' || cust.is_admin === 1;
-                          const cleanPhone = (cust.phone || '').replace(/[^0-9]/g, '');
+              // Sorting
+              filteredCustomers = [...filteredCustomers].sort((a, b) => {
+                if (customerSortBy === 'spend_desc') return (b.total_spent || 0) - (a.total_spent || 0);
+                if (customerSortBy === 'orders_desc') return (b.orders_count || 0) - (a.orders_count || 0);
+                if (customerSortBy === 'newest') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                if (customerSortBy === 'oldest') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+                if (customerSortBy === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+                return 0;
+              });
 
-                          return (
-                            <tr key={cust.id}>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.85rem', border: '1px solid #cbd5e1' }}>
-                                    {(cust.name || 'C')[0].toUpperCase()}
-                                  </div>
-                                  <div>
-                                    <div style={{ fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      {cust.name || 'Anonymous User'}
-                                      {isStaff && (
-                                        <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.65rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '8px' }}>
-                                          Staff
-                                        </span>
-                                      )}
+              const totalSpentAll = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0);
+              const repeatBuyers = customers.filter(c => (c.orders_count || 0) > 1);
+              const buyersOnly = customers.filter(c => (c.orders_count || 0) > 0);
+              const repeatRate = buyersOnly.length > 0 ? ((repeatBuyers.length / buyersOnly.length) * 100).toFixed(0) : 0;
+              const topCityName = uniqueCities[0] || 'Casablanca';
+
+              return (
+                <>
+                  <div className="admin-panel-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                      <h2>👥 Customer Directory & CRM Intelligence</h2>
+                      <p>Filter, segment, and export customer contact lists and lifetime revenue (LTV).</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <button 
+                        className="btn-secondary" 
+                        onClick={() => fetchCustomers()}
+                        disabled={isCustomersLoading}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <RotateCw size={16} className={isCustomersLoading ? 'animate-spin' : ''} /> Refresh
+                      </button>
+                      <button 
+                        className="btn-primary"
+                        onClick={() => handleExportCustomersCSV(filteredCustomers)}
+                        disabled={filteredCustomers.length === 0}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#059669', borderColor: '#059669' }}
+                        title="Download CSV for Excel & Google Sheets"
+                      >
+                        <Download size={16} /> Export CSV ({filteredCustomers.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer KPI Metric Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.8rem' }}>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>Total Registered</span>
+                        <Users size={18} color="#0f172a" />
+                      </div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#0f172a', marginTop: '0.4rem' }}>
+                        {customers.length}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Customer profiles in database</div>
+                    </div>
+
+                    <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#047857' }}>Customer Lifetime Value</span>
+                        <DollarSign size={18} color="#059669" />
+                      </div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#065f46', marginTop: '0.4rem' }}>
+                        {totalSpentAll.toLocaleString()} DH
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#047857' }}>Total revenue across all customers</div>
+                    </div>
+
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '1.2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1d4ed8' }}>Repeat Buyers</span>
+                        <Repeat size={18} color="#2563eb" />
+                      </div>
+                      <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#1e40af', marginTop: '0.4rem' }}>
+                        {repeatBuyers.length} <span style={{ fontSize: '1rem', fontWeight: '600', color: '#3b82f6' }}>({repeatRate}%)</span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>Customers with 2+ orders</div>
+                    </div>
+
+                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '1.2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#7e22ce' }}>Top Hub City</span>
+                        <MapPin size={18} color="#9333ea" />
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#6b21a8', marginTop: '0.4rem' }}>
+                        {topCityName}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#7e22ce' }}>Highest customer concentration</div>
+                    </div>
+                  </div>
+
+                  {/* Advanced Multi-Criteria Filter & Search Toolbar */}
+                  <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {/* Top Row: Search + City + Sort */}
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: '1', minWidth: '260px' }}>
+                        <Filter size={16} color="#64748b" />
+                        <input 
+                          type="text"
+                          placeholder="Search by customer name, email, phone, city, address..."
+                          value={customerSearchQuery}
+                          onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                          style={{ width: '100%', padding: '0.55rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                        />
+                      </div>
+
+                      {/* City Dropdown */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>City:</span>
+                        <select
+                          value={customerCityFilter}
+                          onChange={(e) => setCustomerCityFilter(e.target.value)}
+                          style={{ padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.84rem', background: '#fff', color: '#1e293b', fontWeight: '500' }}
+                        >
+                          <option value="all">All Cities ({customers.length})</option>
+                          {uniqueCities.map(city => (
+                            <option key={city} value={city}>
+                              {city} ({cityCounts[city]})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Sort Dropdown */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: '600', color: '#475569' }}>Sort By:</span>
+                        <select
+                          value={customerSortBy}
+                          onChange={(e) => setCustomerSortBy(e.target.value)}
+                          style={{ padding: '0.5rem 0.8rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.84rem', background: '#fff', color: '#1e293b', fontWeight: '500' }}
+                        >
+                          <option value="spend_desc">💰 Highest Total Spend (LTV)</option>
+                          <option value="orders_desc">📦 Most Orders Placed</option>
+                          <option value="newest">✨ Newest Registered</option>
+                          <option value="oldest">⏳ Oldest Customers</option>
+                          <option value="name_asc">🔤 Name (A - Z)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Segment Pills + Reset */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.8rem' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: '700', color: '#64748b', marginRight: '4px' }}>Segment:</span>
+                        {[
+                          { id: 'all', label: 'All Accounts', count: customers.length },
+                          { id: 'buyers', label: 'Buyers (≥ 1 Order)', count: customers.filter(c => (c.orders_count || 0) >= 1).length },
+                          { id: 'vip', label: 'VIP Repeat (≥ 2 Orders)', count: customers.filter(c => (c.orders_count || 0) >= 2).length },
+                          { id: 'top_spenders', label: 'Top Spenders (≥ 1,000 DH)', count: customers.filter(c => (c.total_spent || 0) >= 1000).length },
+                          { id: 'leads', label: 'Leads (0 Orders)', count: customers.filter(c => (c.orders_count || 0) === 0).length }
+                        ].map((seg) => (
+                          <button
+                            key={seg.id}
+                            onClick={() => setCustomerSegmentFilter(seg.id)}
+                            style={{
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '20px',
+                              fontSize: '0.76rem',
+                              fontWeight: '600',
+                              border: customerSegmentFilter === seg.id ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                              background: customerSegmentFilter === seg.id ? '#0f172a' : '#fff',
+                              color: customerSegmentFilter === seg.id ? '#fff' : '#475569',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span>{seg.label}</span>
+                            <span style={{ fontSize: '0.7rem', padding: '1px 5px', borderRadius: '10px', background: customerSegmentFilter === seg.id ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: customerSegmentFilter === seg.id ? '#fff' : '#64748b' }}>
+                              {seg.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {(customerSearchQuery || customerCityFilter !== 'all' || customerSegmentFilter !== 'all' || customerSortBy !== 'spend_desc') && (
+                        <button
+                          onClick={() => {
+                            setCustomerSearchQuery('');
+                            setCustomerCityFilter('all');
+                            setCustomerSegmentFilter('all');
+                            setCustomerSortBy('spend_desc');
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          Reset Filters
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Customers Table */}
+                  <div className="admin-table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Customer Profile</th>
+                          <th>Email Address</th>
+                          <th>Phone & WhatsApp</th>
+                          <th>City & Shipping Address</th>
+                          <th>Order History</th>
+                          <th>Lifetime Spend (LTV)</th>
+                          <th>Registered</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredCustomers.length === 0 ? (
+                          <tr>
+                            <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                              {customerSearchQuery || customerCityFilter !== 'all' ? 'No customer profiles found matching your active filters.' : 'No registered customers yet.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredCustomers.map((cust) => {
+                            const isStaff = cust.role === 'admin' || cust.role === 'super_admin' || cust.is_admin === 1;
+                            const cleanPhone = (cust.phone || '').replace(/[^0-9]/g, '');
+
+                            return (
+                              <tr key={cust.id}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.85rem', border: '1px solid #cbd5e1' }}>
+                                      {(cust.name || 'C')[0].toUpperCase()}
                                     </div>
-                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID #{cust.id}</div>
+                                    <div>
+                                      <div style={{ fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {cust.name || 'Anonymous User'}
+                                        {isStaff && (
+                                          <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.65rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '8px' }}>
+                                            Staff
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID #{cust.id}</div>
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                              <td>
-                                <a 
-                                  href={`mailto:${cust.email}`} 
-                                  style={{ color: '#0284c7', fontWeight: '500', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                  title="Send Email"
-                                >
-                                  <Mail size={13} /> {cust.email}
-                                </a>
-                              </td>
-                              <td>
-                                {cust.phone ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <a 
-                                      href={`tel:${cust.phone}`} 
-                                      style={{ color: '#334155', fontWeight: '600', textDecoration: 'none', fontSize: '0.82rem' }}
-                                    >
-                                      {cust.phone}
-                                    </a>
-                                    <a 
-                                      href={`https://wa.me/${cleanPhone.startsWith('212') ? cleanPhone : (cleanPhone.startsWith('0') ? '212' + cleanPhone.slice(1) : cleanPhone)}`}
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      style={{ background: '#25D366', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                                      title="Open WhatsApp Chat"
-                                    >
-                                      WA
-                                    </a>
+                                </td>
+                                <td>
+                                  <a 
+                                    href={`mailto:${cust.email}`} 
+                                    style={{ color: '#0284c7', fontWeight: '500', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    title="Send Email"
+                                  >
+                                    <Mail size={13} /> {cust.email}
+                                  </a>
+                                </td>
+                                <td>
+                                  {cust.phone ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <a 
+                                        href={`tel:${cust.phone}`} 
+                                        style={{ color: '#334155', fontWeight: '600', textDecoration: 'none', fontSize: '0.82rem' }}
+                                      >
+                                        {cust.phone}
+                                      </a>
+                                      <a 
+                                        href={`https://wa.me/${cleanPhone.startsWith('212') ? cleanPhone : (cleanPhone.startsWith('0') ? '212' + cleanPhone.slice(1) : cleanPhone)}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        style={{ background: '#25D366', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                        title="Open WhatsApp Chat"
+                                      >
+                                        WA
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No phone</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: '600' }}>
+                                    {cust.city ? (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                        <MapPin size={12} color="#64748b" /> {cust.city}
+                                      </span>
+                                    ) : (
+                                      <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>City not set</span>
+                                    )}
                                   </div>
-                                ) : (
-                                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No phone</span>
-                                )}
-                              </td>
-                              <td>
-                                <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: '600' }}>
-                                  {cust.city ? (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                      <MapPin size={12} color="#64748b" /> {cust.city}
+                                  {cust.address && (
+                                    <div style={{ fontSize: '0.74rem', color: '#64748b', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cust.address}>
+                                      {cust.address}
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  {cust.orders_count > 0 ? (
+                                    <span style={{ background: cust.orders_count > 1 ? '#eff6ff' : '#f8fafc', color: cust.orders_count > 1 ? '#1d4ed8' : '#334155', border: '1px solid #cbd5e1', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                      {cust.orders_count} {cust.orders_count === 1 ? 'Order' : 'Orders'}
                                     </span>
                                   ) : (
-                                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>City not set</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>0 Orders</span>
                                   )}
-                                </div>
-                                {cust.address && (
-                                  <div style={{ fontSize: '0.74rem', color: '#64748b', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cust.address}>
-                                    {cust.address}
-                                  </div>
-                                )}
-                              </td>
-                              <td>
-                                {cust.orders_count > 0 ? (
-                                  <span style={{ background: cust.orders_count > 1 ? '#eff6ff' : '#f8fafc', color: cust.orders_count > 1 ? '#1d4ed8' : '#334155', border: '1px solid #cbd5e1', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
-                                    {cust.orders_count} {cust.orders_count === 1 ? 'Order' : 'Orders'}
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: '800', color: cust.total_spent > 0 ? '#059669' : '#64748b', fontSize: '0.88rem' }}>
+                                    {cust.total_spent > 0 ? `${cust.total_spent.toFixed(0)} DH` : '0 DH'}
                                   </span>
-                                ) : (
-                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>0 Orders</span>
-                                )}
-                              </td>
-                              <td>
-                                <span style={{ fontWeight: '800', color: cust.total_spent > 0 ? '#059669' : '#64748b', fontSize: '0.88rem' }}>
-                                  {cust.total_spent > 0 ? `${cust.total_spent.toFixed(0)} DH` : '0 DH'}
-                                </span>
-                              </td>
-                              <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                {parseOrderDate(cust.created_at || Date.now()).toLocaleDateString()}
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                {cust.orders_count > 0 ? (
-                                  <button
-                                    className="btn-secondary"
-                                    onClick={() => setSelectedCustomerForOrders(cust)}
-                                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    View Orders ({cust.orders_count})
-                                  </button>
-                                ) : (
-                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No Orders</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                </td>
+                                <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                  {parseOrderDate(cust.created_at || Date.now()).toLocaleDateString()}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  {cust.orders_count > 0 ? (
+                                    <button
+                                      className="btn-secondary"
+                                      onClick={() => setSelectedCustomerForOrders(cust)}
+                                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                    >
+                                      View Orders ({cust.orders_count})
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No Orders</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               );
             })()}
           </div>
