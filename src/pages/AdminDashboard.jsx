@@ -46,7 +46,15 @@ const AdminDashboard = ({ currentUser }) => {
       const res = await fetch('/api/admin/customers');
       if (res.ok) {
         const data = await res.json();
-        setCustomers(data.customers || []);
+        const cleanCustomers = (data.customers || []).filter(c => {
+          const r = (c.role || '').toLowerCase();
+          const em = (c.email || '').toLowerCase();
+          if (r === 'admin' || r === 'super_admin') return false;
+          if (c.is_admin === 1 || c.is_admin === '1' || c.is_admin === true) return false;
+          if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(em)) return false;
+          return true;
+        });
+        setCustomers(cleanCustomers);
       }
     } catch (e) {
       console.error('Failed to fetch customers:', e);
@@ -4862,7 +4870,6 @@ const AdminDashboard = ({ currentUser }) => {
                           </tr>
                         ) : (
                           filteredCustomers.map((cust) => {
-                            const isStaff = cust.role === 'admin' || cust.role === 'super_admin' || cust.is_admin === 1;
                             const cleanPhone = (cust.phone || '').replace(/[^0-9]/g, '');
 
                             return (
@@ -4873,13 +4880,8 @@ const AdminDashboard = ({ currentUser }) => {
                                       {(cust.name || 'C')[0].toUpperCase()}
                                     </div>
                                     <div>
-                                      <div style={{ fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <div style={{ fontWeight: '700', color: '#1e293b' }}>
                                         {cust.name || 'Anonymous User'}
-                                        {isStaff && (
-                                          <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.65rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '8px' }}>
-                                            Staff
-                                          </span>
-                                        )}
                                       </div>
                                       <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID #{cust.id}</div>
                                     </div>

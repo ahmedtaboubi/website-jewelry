@@ -840,6 +840,7 @@ app.get('/api/admin/customers', async (req, res) => {
     const usersRes = await turso.execute(`
       SELECT id, name, email, phone, address, city, zipCode, role, is_admin, created_at 
       FROM users 
+      WHERE (is_admin = 0 OR is_admin IS NULL) AND (role = 'customer' OR role IS NULL OR role = '')
       ORDER BY id DESC
     `);
 
@@ -848,8 +849,18 @@ app.get('/api/admin/customers', async (req, res) => {
       FROM orders
     `);
 
+    // Strictly filter out staff / admin accounts
+    const customerOnlyUsers = usersRes.rows.filter(user => {
+      const r = (user.role || '').toLowerCase();
+      const em = (user.email || '').toLowerCase();
+      if (r === 'admin' || r === 'super_admin') return false;
+      if (user.is_admin === 1 || user.is_admin === '1' || user.is_admin === true) return false;
+      if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(em)) return false;
+      return true;
+    });
+
     // Build customer aggregation
-    const customers = usersRes.rows.map(user => {
+    const customers = customerOnlyUsers.map(user => {
       const userOrders = ordersRes.rows.filter(o => {
         if (o.user_id && Number(o.user_id) === Number(user.id)) return true;
         if (o.shipping_details) {
