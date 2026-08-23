@@ -176,6 +176,51 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// 5.1 GET /api/auth/me
+app.get('/api/auth/me', verifyToken, async (req, res) => {
+  try {
+    const result = await turso.execute({
+      sql: 'SELECT id, name, email, phone, address, city, zipCode, is_admin, role, permissions FROM users WHERE id = ?',
+      args: [req.user.id]
+    });
+    const userRow = result.rows[0];
+    if (!userRow) return res.status(404).json({ error: 'User not found' });
+
+    let userPermissions = [];
+    if (userRow.permissions) {
+      try {
+        userPermissions = typeof userRow.permissions === 'string' ? JSON.parse(userRow.permissions) : userRow.permissions;
+      } catch (e) {
+        userPermissions = [];
+      }
+    }
+
+    let userRole = userRow.role || (userRow.is_admin ? 'admin' : 'customer');
+    if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(userRow.email.toLowerCase())) {
+      userRole = 'super_admin';
+      userPermissions = ['orders', 'products', 'reviews', 'ingredients', 'analytics', 'marketing', 'team'];
+    }
+
+    const user = {
+      id: userRow.id,
+      name: userRow.name,
+      email: userRow.email,
+      phone: userRow.phone || '',
+      address: userRow.address || '',
+      city: userRow.city || '',
+      zipCode: userRow.zipCode || '',
+      is_admin: (userRow.is_admin || userRole === 'super_admin' || userRole === 'admin') ? 1 : 0,
+      role: userRole,
+      permissions: Array.isArray(userPermissions) ? userPermissions : []
+    };
+
+    res.json({ user });
+  } catch (error) {
+    console.error('Error in /api/auth/me:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // 6. PUT /api/users/:id
 app.put('/api/users/:id', verifyToken, async (req, res) => {
   try {

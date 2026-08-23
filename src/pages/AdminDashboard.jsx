@@ -44,13 +44,43 @@ const AdminDashboard = ({ currentUser }) => {
   });
   const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
   
+  // Real-time Session & Permissions Live Sync
+  const [sessionUser, setSessionUser] = useState(currentUser);
+
+  useEffect(() => {
+    setSessionUser(currentUser);
+  }, [currentUser]);
+
+  const refreshSessionUser = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user) {
+          setSessionUser(data.user);
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    refreshSessionUser();
+  }, []);
+
+  const activeAdminUser = sessionUser || currentUser;
+
   // Super Admin & Permissions Helpers
-  const isSuperAdmin = currentUser?.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes((currentUser?.email || '').toLowerCase());
+  const isSuperAdmin = activeAdminUser?.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes((activeAdminUser?.email || '').toLowerCase());
   
   const hasPermission = (permKey) => {
     if (isSuperAdmin) return true;
-    if (!currentUser?.permissions) return false;
-    return Array.isArray(currentUser.permissions) && currentUser.permissions.includes(permKey);
+    if (!activeAdminUser?.permissions) return false;
+    return Array.isArray(activeAdminUser.permissions) && activeAdminUser.permissions.includes(permKey);
   };
 
   const [editingAdminPermissions, setEditingAdminPermissions] = useState(null);
@@ -486,7 +516,8 @@ const AdminDashboard = ({ currentUser }) => {
         fetchAdSpends();
         fetchProducts();
         fetchAdminReviews();
-      }, 4000); // Live poll every 4s for instant stock, order & review updates
+        refreshSessionUser();
+      }, 4000); // Live poll every 4s for instant stock, order, review & permission updates
 
       return () => clearInterval(interval);
     }
