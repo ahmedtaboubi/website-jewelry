@@ -88,12 +88,11 @@ const AdminDashboard = ({ currentUser }) => {
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   const availablePermissionList = [
-    { id: 'orders', label: 'Orders & Fulfillment', desc: 'View orders, update delivery status, print invoices', icon: '📦' },
-    { id: 'products', label: 'Products & Inventory', desc: 'Add/edit jewelry, change prices, update stock levels', icon: '💎' },
-    { id: 'reviews', label: 'Customer Reviews Moderation', desc: 'Approve, reject, and moderate product reviews', icon: '⭐' },
-    { id: 'ingredients', label: 'Fragrance & Notes Library', desc: 'Manage olfactive notes, materials, and ingredients', icon: '🧪' },
-    { id: 'analytics', label: 'Financial Analytics & P&L', desc: 'View revenue, conversion rates, profits, and customer ROI', icon: '📊' },
-    { id: 'marketing', label: 'Marketing & Ad Spend', desc: 'Log Meta/TikTok ad spend and view ROAS metrics', icon: '📣' },
+    { id: 'orders', label: 'Orders & Fulfillment', desc: 'View customer orders, update shipping status, and customer details', icon: '📦' },
+    { id: 'products', label: 'Products & Inventory', desc: 'Add/edit jewelry products, adjust prices, and manage stock levels', icon: '💎' },
+    { id: 'reviews', label: 'Customer Reviews Moderation', desc: 'Approve, reject, and moderate product ratings and reviews', icon: '⭐' },
+    { id: 'analytics', label: 'Analytics & Ad Spend (P&L)', desc: 'View total revenue, net profits, ROAS metrics, and log ad spend', icon: '📊' },
+    { id: 'ingredients', label: 'Fragrance & Notes Library', desc: 'Manage olfactive notes, materials, and ingredients database', icon: '🧪' }
   ];
   
   // Real-time table search filters
