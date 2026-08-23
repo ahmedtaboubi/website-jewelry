@@ -863,6 +863,22 @@ app.get('/api/admin/customers', async (req, res) => {
     const registeredEmails = new Set(customerOnlyUsers.map(u => (u.email || '').trim().toLowerCase()).filter(Boolean));
     const registeredUserIds = new Set(customerOnlyUsers.map(u => Number(u.id)));
 
+    // Helper to safely extract full name from shipping details
+    const extractCustomerFullName = (shipping, fallbackEmail) => {
+      if (!shipping) return fallbackEmail ? fallbackEmail.split('@')[0] : 'Guest Buyer';
+      const first = (shipping.firstName || shipping.first_name || '').trim();
+      const last = (shipping.lastName || shipping.last_name || '').trim();
+      if (first && last) return `${first} ${last}`;
+      if (first) return first;
+      if (last) return last;
+      if (shipping.name && shipping.name.trim()) return shipping.name.trim();
+      if (shipping.fullName && shipping.fullName.trim()) return shipping.fullName.trim();
+      if (shipping.full_name && shipping.full_name.trim()) return shipping.full_name.trim();
+      if (shipping.recipient_name && shipping.recipient_name.trim()) return shipping.recipient_name.trim();
+      if (fallbackEmail) return fallbackEmail.split('@')[0];
+      return 'Guest Buyer';
+    };
+
     // 1. Process Registered Customers
     const registeredCustomerList = customerOnlyUsers.map(user => {
       const userOrders = ordersRes.rows.filter(o => {
@@ -884,6 +900,7 @@ app.get('/api/admin/customers', async (req, res) => {
       let recentCity = user.city || '';
       let recentPhone = user.phone || '';
       let recentAddress = user.address || '';
+      let resolvedName = user.name || '';
 
       if (lastOrder && lastOrder.shipping_details) {
         try {
@@ -891,12 +908,13 @@ app.get('/api/admin/customers', async (req, res) => {
           if (!recentCity && ship?.city) recentCity = ship.city;
           if (!recentPhone && ship?.phone) recentPhone = ship.phone;
           if (!recentAddress && ship?.address) recentAddress = ship.address;
+          if (!resolvedName || resolvedName === 'Anonymous') resolvedName = extractCustomerFullName(ship, user.email);
         } catch(e) {}
       }
 
       return {
         id: user.id,
-        name: user.name,
+        name: resolvedName || user.email.split('@')[0],
         email: user.email,
         phone: recentPhone,
         city: recentCity,
@@ -934,11 +952,12 @@ app.get('/api/admin/customers', async (req, res) => {
       if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(email)) return;
 
       const guestKey = email || phone || `guest_${order.id}`;
+      const customerFullName = extractCustomerFullName(shipping, email);
 
       if (!guestMap.has(guestKey)) {
         guestMap.set(guestKey, {
           id: `G-${order.id}`,
-          name: shipping?.name || shipping?.fullName || (email ? email.split('@')[0] : 'Guest Buyer'),
+          name: customerFullName,
           email: email || 'No email provided',
           phone: phone,
           city: shipping?.city || '',
@@ -961,7 +980,9 @@ app.get('/api/admin/customers', async (req, res) => {
         if (shipping?.city) guestProfile.city = shipping.city;
         if (shipping?.phone) guestProfile.phone = shipping.phone;
         if (shipping?.address) guestProfile.address = shipping.address;
-        if (shipping?.name || shipping?.fullName) guestProfile.name = shipping?.name || shipping?.fullName;
+        if (customerFullName && customerFullName !== 'Guest Buyer') {
+          guestProfile.name = customerFullName;
+        }
       }
       if (new Date(order.created_at || 0) < new Date(guestProfile.created_at || 0)) {
         guestProfile.created_at = order.created_at;
