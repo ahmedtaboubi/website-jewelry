@@ -7,7 +7,7 @@ import {
   CalendarDays, Sliders, ChevronRight, Info, CheckCircle2, Sun, Moon, HelpCircle,
   MapPin, Globe, ShieldCheck, ShieldAlert, Navigation, Layers, Boxes, Tag, Truck,
   Star, MessageSquare, ThumbsUp, CheckCircle, Check, XCircle, AlertCircle, Camera,
-  UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink
+  UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -119,6 +119,33 @@ const AdminDashboard = ({ currentUser }) => {
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
+  };
+
+  // --- CUSTOM ACTION CONFIRMATION MODAL STATE ---
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'danger',
+    onConfirm: () => {}
+  });
+
+  const openConfirmModal = ({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'danger', onConfirm }) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      type,
+      onConfirm
+    });
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
   };
 
   // Product form state
@@ -259,20 +286,28 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
-  const handleDeleteAdSpend = async (id) => {
-    if (!window.confirm('Delete this ad spend record?')) return;
-    try {
-      const res = await fetch(`/api/ad-spend/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-      });
-      if (res.ok) {
-        showToast('Ad spend record deleted');
-        fetchAdSpends();
+  const handleDeleteAdSpend = (id) => {
+    openConfirmModal({
+      title: 'Delete Ad Spend Entry?',
+      message: 'Are you sure you want to remove this marketing ad spend record? Your ROAS calculations will update accordingly.',
+      confirmText: 'Delete Record',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/ad-spend/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+          });
+          if (res.ok) {
+            showToast('Ad spend record deleted');
+            fetchAdSpends();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const fetchAdminReviews = async (statusOverride, searchOverride) => {
@@ -326,24 +361,32 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
-  const handleDeleteReview = async (reviewId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this review?')) return;
-    try {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast('Review permanently deleted');
-        fetchAdminReviews();
-      } else {
-        showToast('Failed to delete review', 'error');
+  const handleDeleteReview = (reviewId) => {
+    openConfirmModal({
+      title: 'Delete Customer Review?',
+      message: 'Are you sure you want to permanently remove this review? This action cannot be reversed.',
+      confirmText: 'Delete Review',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            showToast('Review permanently deleted');
+            fetchAdminReviews();
+          } else {
+            showToast('Failed to delete review', 'error');
+          }
+        } catch (e) {
+          console.error('Delete review error:', e);
+          showToast('Error deleting review', 'error');
+        }
       }
-    } catch (e) {
-      console.error('Delete review error:', e);
-      showToast('Error deleting review', 'error');
-    }
+    });
   };
 
   // --- ADMIN TEAM HANDLERS ---
@@ -457,44 +500,60 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
-  const handleRevokeAdmin = async (adminId, adminName) => {
-    if (!window.confirm(`Are you sure you want to revoke admin permissions for ${adminName}?`)) return;
-    try {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/admin/team/${adminId}/revoke`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast(`Admin permissions revoked for ${adminName}`);
-        fetchAdminTeam();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'Failed to revoke admin', 'error');
+  const handleRevokeAdmin = (adminId, adminName) => {
+    openConfirmModal({
+      title: 'Revoke Admin Privileges?',
+      message: `Are you sure you want to revoke admin access for "${adminName}"? Their account will be converted to a regular customer account and dashboard access will be removed immediately.`,
+      confirmText: 'Revoke Access',
+      cancelText: 'Keep Admin',
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const res = await fetch(`/api/admin/team/${adminId}/revoke`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            showToast(`Admin permissions revoked for ${adminName}`);
+            fetchAdminTeam();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Failed to revoke admin', 'error');
+          }
+        } catch (err) {
+          console.error('Revoke admin error:', err);
+        }
       }
-    } catch (err) {
-      console.error('Revoke admin error:', err);
-    }
+    });
   };
 
-  const handleDeleteAdmin = async (adminId, adminName) => {
-    if (!window.confirm(`Are you sure you want to permanently delete the account of ${adminName}?`)) return;
-    try {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/admin/team/${adminId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast(`Admin account deleted.`);
-        fetchAdminTeam();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'Failed to delete admin', 'error');
+  const handleDeleteAdmin = (adminId, adminName) => {
+    openConfirmModal({
+      title: 'Delete Administrator Account?',
+      message: `Are you sure you want to permanently delete the account of "${adminName}"? This action cannot be undone and will delete their user profile permanently.`,
+      confirmText: 'Delete Account',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const res = await fetch(`/api/admin/team/${adminId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            showToast(`Admin account deleted.`);
+            fetchAdminTeam();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'Failed to delete admin', 'error');
+          }
+        } catch (err) {
+          console.error('Delete admin error:', err);
+        }
       }
-    } catch (err) {
-      console.error('Delete admin error:', err);
-    }
+    });
   };
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1561,20 +1620,28 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
-  const handleDeleteIngredient = async (id) => {
-    if (window.confirm('Are you sure you want to delete this ingredient?')) {
-      try {
-        const res = await fetch(`/api/ingredients/${id}`, { 
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-        });
-        if (res.ok) {
-          fetchIngredients();
+  const handleDeleteIngredient = (id) => {
+    openConfirmModal({
+      title: 'Delete Fragrance Ingredient?',
+      message: 'Are you sure you want to remove this ingredient from your notes library? Products linked to this note will not be deleted.',
+      confirmText: 'Delete Ingredient',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/ingredients/${id}`, { 
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+          });
+          if (res.ok) {
+            showToast('Ingredient deleted');
+            fetchIngredients();
+          }
+        } catch (e) {
+          console.error('Failed to delete ingredient', e);
         }
-      } catch (e) {
-        console.error('Failed to delete ingredient', e);
       }
-    }
+    });
   };
 
   return (
@@ -4845,6 +4912,73 @@ const AdminDashboard = ({ currentUser }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* --- CUSTOM CONFIRMATION ACTION MODAL --- */}
+      {confirmModal.isOpen && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={closeConfirmModal} style={{ zIndex: 99999 }}>
+          <div className="modal-content admin-modal animate-fade-up" style={{ maxWidth: '440px', padding: '2rem 1.8rem', borderRadius: '16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeConfirmModal}>
+              <X size={20} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.2rem' }}>
+              <div style={{ 
+                width: '60px', 
+                height: '60px', 
+                borderRadius: '50%', 
+                background: confirmModal.type === 'danger' ? '#fee2e2' : '#fef3c7', 
+                color: confirmModal.type === 'danger' ? '#dc2626' : '#d97706', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                marginBottom: '1rem',
+                border: confirmModal.type === 'danger' ? '1px solid #fecaca' : '1px solid #fde68a'
+              }}>
+                {confirmModal.type === 'danger' ? <Trash2 size={26} /> : <AlertTriangle size={26} />}
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: '800' }}>
+                {confirmModal.title}
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '0.88rem', marginTop: '0.6rem', lineHeight: '1.5', padding: '0 0.5rem' }}>
+                {confirmModal.message}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                onClick={closeConfirmModal}
+                style={{ flex: 1, padding: '0.7rem 1rem', borderRadius: '10px', fontWeight: '600', fontSize: '0.9rem' }}
+              >
+                {confirmModal.cancelText}
+              </button>
+              <button 
+                type="button" 
+                onClick={async () => {
+                  const cb = confirmModal.onConfirm;
+                  closeConfirmModal();
+                  if (cb) await cb();
+                }}
+                style={{ 
+                  flex: 1, 
+                  padding: '0.7rem 1rem', 
+                  borderRadius: '10px', 
+                  fontWeight: '700',
+                  fontSize: '0.9rem',
+                  color: '#fff',
+                  border: 'none',
+                  background: confirmModal.type === 'danger' ? '#dc2626' : '#d97706',
+                  cursor: 'pointer',
+                  boxShadow: confirmModal.type === 'danger' ? '0 4px 14px rgba(220, 38, 38, 0.3)' : '0 4px 14px rgba(217, 119, 6, 0.3)'
+                }}
+              >
+                {confirmModal.confirmText}
+              </button>
+            </div>
           </div>
         </div>,
         document.body
