@@ -277,7 +277,7 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
                   >
                     👤 {t('navbar.profile')}
                   </button>
-                  {currentUser?.is_admin === 1 && (
+                  {Boolean(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && (
                     <button 
                       className="mobile-action-btn admin-btn"
                       onClick={() => { setIsMobileDrawerOpen(false); goToAdmin(); }}
@@ -474,7 +474,7 @@ const Navbar = ({ cartItemCount, onCartClick, showToast, currentPage, goToHome, 
                         <p>{t('navbar.hi_name', { name: currentUser.name })}</p>
                       </div>
                       <button onClick={() => { setIsProfileMenuOpen(false); goToProfile(); }}>{t('navbar.profile')}</button>
-                      {currentUser?.is_admin === 1 && (
+                      {Boolean(currentUser?.is_admin === 1 || currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && (
                         <button onClick={() => { setIsProfileMenuOpen(false); goToAdmin(); }}>{t('navbar.admin')}</button>
                       )}
                       <button onClick={() => { setIsProfileMenuOpen(false); onLogout(); }}>{t('navbar.logout')}</button>

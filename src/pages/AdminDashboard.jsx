@@ -80,7 +80,17 @@ const AdminDashboard = ({ currentUser }) => {
   const hasPermission = (permKey) => {
     if (isSuperAdmin) return true;
     if (!activeAdminUser?.permissions) return false;
-    return Array.isArray(activeAdminUser.permissions) && activeAdminUser.permissions.includes(permKey);
+    let perms = activeAdminUser.permissions;
+    if (typeof perms === 'string') {
+      try {
+        perms = JSON.parse(perms);
+      } catch (e) {
+        perms = [];
+      }
+    }
+    if (!Array.isArray(perms)) return false;
+    if (permKey === 'analytics' && perms.includes('marketing')) return true;
+    return perms.includes(permKey);
   };
 
   const [editingAdminPermissions, setEditingAdminPermissions] = useState(null);
@@ -522,7 +532,7 @@ const AdminDashboard = ({ currentUser }) => {
     }
   }, [currentUser, reviewFilterStatus]);
 
-  if (!currentUser?.is_admin) {
+  if (!activeAdminUser?.is_admin && activeAdminUser?.role !== 'admin' && activeAdminUser?.role !== 'super_admin') {
     return (
       <div className="container text-center" style={{ padding: '4rem 0' }}>
         <h2>Access Denied</h2>

@@ -72,22 +72,28 @@ function App() {
     }
   }, [currentUser]);
 
-  // Live Sync current user session & permissions with Turso Cloud on app startup
+  // Live Sync current user session & permissions with Turso Cloud
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.user) {
-            setCurrentUser(data.user);
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
-          }
+    const syncUser = () => {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
         })
-        .catch(console.error);
-    }
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.user) {
+              setCurrentUser(data.user);
+              localStorage.setItem('currentUser', JSON.stringify(data.user));
+            }
+          })
+          .catch(console.error);
+      }
+    };
+
+    syncUser();
+    const interval = setInterval(syncUser, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   // Basic HTML5 History API Routing
