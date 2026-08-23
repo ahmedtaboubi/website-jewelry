@@ -104,7 +104,9 @@ app.post('/api/auth/register', async (req, res) => {
       name,
       email: email.toLowerCase(),
       phone: phone || '',
-      is_admin: 0
+      is_admin: 0,
+      role: 'customer',
+      permissions: []
     };
 
     const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
@@ -138,6 +140,21 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    let userPermissions = [];
+    if (userRow.permissions) {
+      try {
+        userPermissions = typeof userRow.permissions === 'string' ? JSON.parse(userRow.permissions) : userRow.permissions;
+      } catch (e) {
+        userPermissions = [];
+      }
+    }
+
+    let userRole = userRow.role || (userRow.is_admin ? 'admin' : 'customer');
+    if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(userRow.email.toLowerCase())) {
+      userRole = 'super_admin';
+      userPermissions = ['orders', 'products', 'reviews', 'ingredients', 'analytics', 'marketing', 'team'];
+    }
+
     const user = {
       id: userRow.id,
       name: userRow.name,
@@ -146,7 +163,9 @@ app.post('/api/auth/login', async (req, res) => {
       address: userRow.address || '',
       city: userRow.city || '',
       zipCode: userRow.zipCode || '',
-      is_admin: userRow.is_admin ? 1 : 0
+      is_admin: (userRow.is_admin || userRole === 'super_admin' || userRole === 'admin') ? 1 : 0,
+      role: userRole,
+      permissions: Array.isArray(userPermissions) ? userPermissions : []
     };
 
     const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
@@ -783,14 +802,35 @@ app.get('/api/admin/team', async (req, res) => {
       } catch (e) {}
     }
 
-    const admins = await turso.execute(`
-      SELECT id, name, email, phone, is_admin, created_at
+    const adminsRes = await turso.execute(`
+      SELECT id, name, email, phone, is_admin, role, permissions, created_at
       FROM users
-      WHERE is_admin = 1
+      WHERE is_admin = 1 OR role IN ('super_admin', 'admin')
       ORDER BY id ASC
     `);
 
-    res.json({ admins: admins.rows, currentAdminId });
+    const admins = adminsRes.rows.map(admin => {
+      let perms = [];
+      if (admin.permissions) {
+        try {
+          perms = typeof admin.permissions === 'string' ? JSON.parse(admin.permissions) : admin.permissions;
+        } catch (e) {
+          perms = [];
+        }
+      }
+      let r = admin.role || 'admin';
+      if (['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes((admin.email || '').toLowerCase())) {
+        r = 'super_admin';
+        perms = ['orders', 'products', 'reviews', 'ingredients', 'analytics', 'marketing', 'team'];
+      }
+      return {
+        ...admin,
+        role: r,
+        permissions: Array.isArray(perms) ? perms : []
+      };
+    });
+
+    res.json({ admins, currentAdminId });
   } catch (error) {
     console.error('Fetch admin team error:', error);
     res.status(500).json({ error: 'Failed to fetch admin team' });
@@ -799,13 +839,15 @@ app.get('/api/admin/team', async (req, res) => {
 
 app.post('/api/admin/team/create', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, permissions } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
 
     const cleanName = name.toString().trim();
     const cleanEmail = email.toString().trim().toLowerCase();
+    const permsList = Array.isArray(permissions) && permissions.length > 0 ? permissions : ['orders', 'products', 'reviews'];
+    const cleanPermissions = JSON.stringify(permsList);
 
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters.' });
@@ -814,49 +856,103 @@ app.post('/api/admin/team/create', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const existingUser = await turso.execute({
-      sql: 'SELECT id, is_admin FROM users WHERE LOWER(email) = LOWER(?)',
+      sql: 'SELECT id, is_admin, role FROM users WHERE LOWER(email) = LOWER(?)',
       args: [cleanEmail]
     });
 
     if (existingUser.rows.length > 0) {
       const userRow = existingUser.rows[0];
-      if (userRow.is_admin === 1) {
-        return res.status(400).json({ error: 'An admin account with this email already exists.' });
+      if (userRow.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(cleanEmail)) {
+        return res.status(400).json({ error: 'Super Admin account is permanently configured.' });
       }
       await turso.execute({
-        sql: 'UPDATE users SET is_admin = 1, name = ?, password = ? WHERE id = ?',
-        args: [cleanName, hashedPassword, userRow.id]
+        sql: 'UPDATE users SET is_admin = 1, role = ?, permissions = ?, name = ?, password = ? WHERE id = ?',
+        args: ['admin', cleanPermissions, cleanName, hashedPassword, userRow.id]
       });
       const updatedUser = await turso.execute({
-        sql: 'SELECT id, name, email, phone, is_admin, created_at FROM users WHERE id = ?',
+        sql: 'SELECT id, name, email, phone, is_admin, role, permissions, created_at FROM users WHERE id = ?',
         args: [userRow.id]
       });
-      return res.json({ message: `User ${cleanEmail} promoted to Admin!`, admin: updatedUser.rows[0] });
+      return res.json({ 
+        message: `User ${cleanEmail} promoted to Admin!`, 
+        admin: { ...updatedUser.rows[0], permissions: permsList } 
+      });
     }
 
     const insertResult = await turso.execute({
-      sql: 'INSERT INTO users (name, email, password, is_admin) VALUES (?, ?, ?, 1)',
-      args: [cleanName, cleanEmail, hashedPassword]
+      sql: 'INSERT INTO users (name, email, password, is_admin, role, permissions) VALUES (?, ?, ?, 1, ?, ?)',
+      args: [cleanName, cleanEmail, hashedPassword, 'admin', cleanPermissions]
     });
 
     const newAdminId = Number(insertResult.lastInsertRowid);
     const newAdmin = await turso.execute({
-      sql: 'SELECT id, name, email, phone, is_admin, created_at FROM users WHERE id = ?',
+      sql: 'SELECT id, name, email, phone, is_admin, role, permissions, created_at FROM users WHERE id = ?',
       args: [newAdminId]
     });
 
-    res.status(201).json({ message: `Admin ${cleanName} created successfully!`, admin: newAdmin.rows[0] });
+    res.status(201).json({ 
+      message: `Admin ${cleanName} created successfully!`, 
+      admin: { ...newAdmin.rows[0], permissions: permsList } 
+    });
   } catch (error) {
     console.error('Create admin error:', error);
     res.status(500).json({ error: 'Failed to create admin' });
   }
 });
 
+app.put('/api/admin/team/:id/permissions', async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const { permissions } = req.body;
+
+    const userRes = await turso.execute({
+      sql: 'SELECT id, email, role FROM users WHERE id = ?',
+      args: [targetId]
+    });
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Admin not found.' });
+    }
+
+    const targetUser = userRes.rows[0];
+    if (targetUser.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(targetUser.email?.toLowerCase())) {
+      return res.status(403).json({ error: 'Super Admin permissions are permanent and cannot be modified.' });
+    }
+
+    const permsList = Array.isArray(permissions) ? permissions : [];
+    const permsJson = JSON.stringify(permsList);
+    await turso.execute({
+      sql: 'UPDATE users SET permissions = ? WHERE id = ?',
+      args: [permsJson, targetId]
+    });
+
+    res.json({ message: 'Permissions updated successfully', permissions: permsList });
+  } catch (error) {
+    console.error('Update permissions error:', error);
+    res.status(500).json({ error: 'Failed to update admin permissions' });
+  }
+});
+
 app.put('/api/admin/team/:id/revoke', async (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
+
+    const userRes = await turso.execute({
+      sql: 'SELECT id, email, role FROM users WHERE id = ?',
+      args: [targetId]
+    });
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const targetUser = userRes.rows[0];
+    if (targetUser.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(targetUser.email?.toLowerCase())) {
+      return res.status(403).json({ error: 'Super Admin account is permanently protected and cannot be revoked.' });
+    }
+
     await turso.execute({
-      sql: 'UPDATE users SET is_admin = 0 WHERE id = ?',
+      sql: "UPDATE users SET is_admin = 0, role = 'customer', permissions = '[]' WHERE id = ?",
       args: [targetId]
     });
     res.json({ message: 'Admin privileges revoked successfully' });
@@ -869,6 +965,21 @@ app.put('/api/admin/team/:id/revoke', async (req, res) => {
 app.delete('/api/admin/team/:id', async (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
+
+    const userRes = await turso.execute({
+      sql: 'SELECT id, email, role FROM users WHERE id = ?',
+      args: [targetId]
+    });
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const targetUser = userRes.rows[0];
+    if (targetUser.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes(targetUser.email?.toLowerCase())) {
+      return res.status(403).json({ error: 'Super Admin account is permanently protected and cannot be deleted.' });
+    }
+
     await turso.execute({
       sql: 'DELETE FROM users WHERE id = ?',
       args: [targetId]

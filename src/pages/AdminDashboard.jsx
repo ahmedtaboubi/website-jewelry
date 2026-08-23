@@ -30,13 +30,41 @@ const AdminDashboard = ({ currentUser }) => {
   const [reviewSearchQuery, setReviewSearchQuery] = useState('');
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
 
-  // --- ADMIN TEAM MANAGEMENT STATE ---
+  // --- ADMIN TEAM MANAGEMENT & PERMISSIONS STATE ---
   const [adminTeam, setAdminTeam] = useState([]);
   const [currentLoggedInAdminId, setCurrentLoggedInAdminId] = useState(null);
   const [isAdminTeamLoading, setIsAdminTeamLoading] = useState(false);
   const [isCreateAdminModalOpen, setIsCreateAdminModalOpen] = useState(false);
-  const [newAdminForm, setNewAdminForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [newAdminForm, setNewAdminForm] = useState({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '',
+    permissions: ['orders', 'products', 'reviews']
+  });
   const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
+  
+  // Super Admin & Permissions Helpers
+  const isSuperAdmin = currentUser?.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes((currentUser?.email || '').toLowerCase());
+  
+  const hasPermission = (permKey) => {
+    if (isSuperAdmin) return true;
+    if (!currentUser?.permissions) return false;
+    return Array.isArray(currentUser.permissions) && currentUser.permissions.includes(permKey);
+  };
+
+  const [editingAdminPermissions, setEditingAdminPermissions] = useState(null);
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+
+  const availablePermissionList = [
+    { id: 'orders', label: 'Orders & Fulfillment', desc: 'View orders, update delivery status, print invoices', icon: '📦' },
+    { id: 'products', label: 'Products & Inventory', desc: 'Add/edit jewelry, change prices, update stock levels', icon: '💎' },
+    { id: 'reviews', label: 'Customer Reviews Moderation', desc: 'Approve, reject, and moderate product reviews', icon: '⭐' },
+    { id: 'ingredients', label: 'Fragrance & Notes Library', desc: 'Manage olfactive notes, materials, and ingredients', icon: '🧪' },
+    { id: 'analytics', label: 'Financial Analytics & P&L', desc: 'View revenue, conversion rates, profits, and customer ROI', icon: '📊' },
+    { id: 'marketing', label: 'Marketing & Ad Spend', desc: 'Log Meta/TikTok ad spend and view ROAS metrics', icon: '📣' },
+  ];
   
   // Real-time table search filters
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
@@ -323,7 +351,8 @@ const AdminDashboard = ({ currentUser }) => {
         body: JSON.stringify({
           name: newAdminForm.name,
           email: newAdminForm.email,
-          password: newAdminForm.password
+          password: newAdminForm.password,
+          permissions: newAdminForm.permissions || ['orders', 'products', 'reviews']
         })
       });
 
@@ -331,7 +360,13 @@ const AdminDashboard = ({ currentUser }) => {
         const data = await res.json();
         showToast(data.message || 'Admin successfully created!');
         setIsCreateAdminModalOpen(false);
-        setNewAdminForm({ name: '', email: '', password: '', confirmPassword: '' });
+        setNewAdminForm({ 
+          name: '', 
+          email: '', 
+          password: '', 
+          confirmPassword: '', 
+          permissions: ['orders', 'products', 'reviews'] 
+        });
         fetchAdminTeam();
       } else {
         const err = await res.json().catch(() => ({}));
@@ -342,6 +377,44 @@ const AdminDashboard = ({ currentUser }) => {
       showToast('Network error creating admin', 'error');
     } finally {
       setIsSubmittingAdmin(false);
+    }
+  };
+
+  const handleOpenEditPermissions = (admin) => {
+    setEditingAdminPermissions(admin);
+    const currentPerms = Array.isArray(admin.permissions) && admin.permissions.length > 0
+      ? admin.permissions 
+      : ['orders', 'products', 'reviews'];
+    setSelectedPermissions(currentPerms);
+  };
+
+  const handleSaveAdminPermissions = async (e) => {
+    e.preventDefault();
+    if (!editingAdminPermissions) return;
+    setIsSavingPermissions(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`/api/admin/team/${editingAdminPermissions.id}/permissions`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ permissions: selectedPermissions })
+      });
+      if (res.ok) {
+        showToast(`Permissions updated for ${editingAdminPermissions.name}!`);
+        setEditingAdminPermissions(null);
+        fetchAdminTeam();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'Failed to update permissions', 'error');
+      }
+    } catch (err) {
+      console.error('Update permissions error:', err);
+      showToast('Network error updating permissions', 'error');
+    } finally {
+      setIsSavingPermissions(false);
     }
   };
 
@@ -1517,72 +1590,84 @@ const AdminDashboard = ({ currentUser }) => {
       </div>
 
       <div className="admin-tabs">
-        <button 
-          className={`admin-tab ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
-        >
-          <BarChart3 size={18} /> Analytics & Media Buying
-          <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'analytics' ? 'rgba(255,255,255,0.2)' : '#ecfdf5', color: activeTab === 'analytics' ? '#fff' : '#059669' }}>
-            ⚡ Pro Intel
-          </span>
-        </button>
-        <button 
-          className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('orders')}
-        >
-          <ShoppingBag size={18} /> Orders
-          <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'orders' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'orders' ? '#fff' : '#475569' }}>
-            {orders.length}
-          </span>
-        </button>
-        <button 
-          className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
-          onClick={() => setActiveTab('products')}
-        >
-          <Package size={18} /> Products
-          <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'products' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'products' ? '#fff' : '#475569' }}>
-            {products.length}
-          </span>
-        </button>
-        <button 
-          className={`admin-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ingredients')}
-        >
-          <FlaskConical size={18} /> Ingredients
-          <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'ingredients' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'ingredients' ? '#fff' : '#475569' }}>
-            {ingredientsList.length}
-          </span>
-        </button>
-        <button 
-          className={`admin-tab ${activeTab === 'reviews' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('reviews');
-            fetchAdminReviews();
-          }}
-        >
-          <MessageSquare size={18} /> Reviews & Moderation
-          {adminReviewCounts.pending > 0 ? (
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? '#d97706' : '#f59e0b', color: '#fff', fontWeight: '700' }}>
-              ⏳ {adminReviewCounts.pending} Pending
+        {hasPermission('analytics') && (
+          <button 
+            className={`admin-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analytics')}
+          >
+            <BarChart3 size={18} /> Analytics & Media Buying
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'analytics' ? 'rgba(255,255,255,0.2)' : '#ecfdf5', color: activeTab === 'analytics' ? '#fff' : '#059669' }}>
+              ⚡ Pro Intel
             </span>
-          ) : (
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'reviews' ? '#fff' : '#475569' }}>
-              {adminReviewCounts.total}
+          </button>
+        )}
+        {hasPermission('orders') && (
+          <button 
+            className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+          >
+            <ShoppingBag size={18} /> Orders
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'orders' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'orders' ? '#fff' : '#475569' }}>
+              {orders.length}
             </span>
-          )}
-        </button>
-        <button 
-          className={`admin-tab ${activeTab === 'team' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('team');
-            fetchAdminTeam();
-          }}
-        >
-          <Users size={18} /> Team & Admins
-          <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'team' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'team' ? '#fff' : '#475569' }}>
-            {adminTeam.length || 1}
-          </span>
-        </button>
+          </button>
+        )}
+        {hasPermission('products') && (
+          <button 
+            className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => setActiveTab('products')}
+          >
+            <Package size={18} /> Products
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'products' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'products' ? '#fff' : '#475569' }}>
+              {products.length}
+            </span>
+          </button>
+        )}
+        {hasPermission('ingredients') && (
+          <button 
+            className={`admin-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ingredients')}
+          >
+            <FlaskConical size={18} /> Ingredients
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'ingredients' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'ingredients' ? '#fff' : '#475569' }}>
+              {ingredientsList.length}
+            </span>
+          </button>
+        )}
+        {hasPermission('reviews') && (
+          <button 
+            className={`admin-tab ${activeTab === 'reviews' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('reviews');
+              fetchAdminReviews();
+            }}
+          >
+            <MessageSquare size={18} /> Reviews & Moderation
+            {adminReviewCounts.pending > 0 ? (
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? '#d97706' : '#f59e0b', color: '#fff', fontWeight: '700' }}>
+                ⏳ {adminReviewCounts.pending} Pending
+              </span>
+            ) : (
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'reviews' ? '#fff' : '#475569' }}>
+                {adminReviewCounts.total}
+              </span>
+            )}
+          </button>
+        )}
+        {isSuperAdmin && (
+          <button 
+            className={`admin-tab ${activeTab === 'team' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('team');
+              fetchAdminTeam();
+            }}
+          >
+            <Users size={18} /> Team & Permissions
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'team' ? 'rgba(255,255,255,0.2)' : '#fef3c7', color: activeTab === 'team' ? '#fff' : '#b45309', fontWeight: '700' }}>
+              👑 Super Admin
+            </span>
+          </button>
+        )}
       </div>
 
       <div className="admin-content">
@@ -4320,12 +4405,16 @@ const AdminDashboard = ({ currentUser }) => {
         )}
 
         {/* --- TEAM & ADMINS MANAGEMENT PANEL --- */}
-        {activeTab === 'team' && (
+        {activeTab === 'team' && isSuperAdmin && (
           <div className="admin-panel animate-fade-in">
             <div className="admin-panel-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h2>Store Administrators & Staff</h2>
-                <p>Create, manage, and grant admin permissions to your team.</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h2 style={{ margin: 0 }}>👑 Super Admin Control Center: Team & Permissions</h2>
+                </div>
+                <p style={{ color: '#64748b', fontSize: '0.88rem', marginTop: '0.3rem' }}>
+                  As Super Admin, you have absolute ownership. Create staff admins and grant exact permissions for what each member can access.
+                </p>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
                 <button 
@@ -4341,7 +4430,7 @@ const AdminDashboard = ({ currentUser }) => {
                   onClick={() => setIsCreateAdminModalOpen(true)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#0f172a' }}
                 >
-                  <UserPlus size={16} /> Add New Admin
+                  <UserPlus size={16} /> Add Staff Admin
                 </button>
               </div>
             </div>
@@ -4356,18 +4445,18 @@ const AdminDashboard = ({ currentUser }) => {
                 <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#0f172a', marginTop: '0.4rem' }}>
                   {adminTeam.length || 1}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Active accounts with store management access</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Active accounts with store access</div>
               </div>
 
-              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.2rem' }}>
+              <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: '12px', padding: '1.2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#047857' }}>Super Admin Role</span>
-                  <UserCheck size={18} color="#059669" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#854d0e' }}>👑 Super Admin (Immune)</span>
+                  <UserCheck size={18} color="#ca8a04" />
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#065f46', marginTop: '0.6rem' }}>
-                  Full Access & Creator Privileges
+                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#713f12', marginTop: '0.6rem' }}>
+                  Permanent Owner Privileges
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#047857', marginTop: '0.2rem' }}>Manage products, orders, analytics, and team members</div>
+                <div style={{ fontSize: '0.78rem', color: '#854d0e', marginTop: '0.2rem' }}>Protected account: cannot be deleted or revoked by anyone</div>
               </div>
             </div>
 
@@ -4378,32 +4467,48 @@ const AdminDashboard = ({ currentUser }) => {
                   <tr>
                     <th>Administrator</th>
                     <th>Email Address</th>
-                    <th>Role & Status</th>
+                    <th>Role & Privileges</th>
+                    <th>Assigned Permissions</th>
                     <th>Date Added</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th style={{ textAlign: 'right' }}>Actions & Controls</th>
                   </tr>
                 </thead>
                 <tbody>
                   {adminTeam.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
                         Loading admin team members...
                       </td>
                     </tr>
                   ) : (
                     adminTeam.map((admin) => {
-                      const isCurrentSession = currentLoggedInAdminId === admin.id || currentUser?.id === admin.id || currentUser?.email === admin.email;
+                      const isCurrentUserItem = currentLoggedInAdminId === admin.id || currentUser?.id === admin.id || currentUser?.email === admin.email;
+                      const isItemSuperAdmin = admin.role === 'super_admin' || ['ahmed.taboubi@hotmail.fr', 'admin@aura.com'].includes((admin.email || '').toLowerCase());
+                      const adminPerms = Array.isArray(admin.permissions) ? admin.permissions : [];
+
                       return (
                         <tr key={admin.id}>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.9rem' }}>
-                                {(admin.name || 'A')[0].toUpperCase()}
+                              <div style={{ 
+                                width: '38px', 
+                                height: '38px', 
+                                borderRadius: '50%', 
+                                background: isItemSuperAdmin ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#0f172a', 
+                                color: '#fff', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                fontWeight: '700', 
+                                fontSize: '0.9rem',
+                                boxShadow: isItemSuperAdmin ? '0 2px 8px rgba(217, 119, 6, 0.3)' : 'none'
+                              }}>
+                                {isItemSuperAdmin ? '👑' : (admin.name || 'A')[0].toUpperCase()}
                               </div>
                               <div>
                                 <div style={{ fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   {admin.name}
-                                  {isCurrentSession && (
+                                  {isCurrentUserItem && (
                                     <span style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.7rem', fontWeight: '700', padding: '0.1rem 0.45rem', borderRadius: '10px' }}>
                                       You
                                     </span>
@@ -4417,31 +4522,67 @@ const AdminDashboard = ({ currentUser }) => {
                             {admin.email}
                           </td>
                           <td>
-                            <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <ShieldCheck size={12} /> Store Admin
-                            </span>
+                            {isItemSuperAdmin ? (
+                              <span style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                👑 Super Admin (Owner)
+                              </span>
+                            ) : (
+                              <span style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <ShieldCheck size={12} /> Staff Admin
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {isItemSuperAdmin ? (
+                              <span style={{ fontSize: '0.78rem', color: '#059669', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                ⭐ All Modules Unlocked
+                              </span>
+                            ) : (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '280px' }}>
+                                {adminPerms.length === 0 ? (
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No active permissions</span>
+                                ) : (
+                                  adminPerms.map((p) => {
+                                    const meta = availablePermissionList.find(x => x.id === p);
+                                    return (
+                                      <span key={p} style={{ fontSize: '0.7rem', background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '6px', fontWeight: '600' }}>
+                                        {meta ? `${meta.icon} ${meta.label.split('&')[0].trim()}` : p}
+                                      </span>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
                             {parseOrderDate(admin.created_at || Date.now()).toLocaleDateString()}
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {isCurrentSession ? (
-                              <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                Active Session
+                            {isItemSuperAdmin ? (
+                              <span style={{ fontSize: '0.75rem', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '0.25rem 0.6rem', borderRadius: '6px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                🛡️ Immune / Permanent
                               </span>
                             ) : (
-                              <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                              <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                                <button
+                                  className="btn-secondary"
+                                  onClick={() => handleOpenEditPermissions(admin)}
+                                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  title="Edit allowed modules"
+                                >
+                                  ⚙️ Permissions
+                                </button>
                                 <button
                                   className="btn-secondary"
                                   onClick={() => handleRevokeAdmin(admin.id, admin.name)}
-                                  style={{ padding: '0.35rem 0.7rem', fontSize: '0.75rem', borderColor: '#fde68a', color: '#b45309', background: '#fffbeb' }}
-                                  title="Revoke admin permissions (keep account)"
+                                  style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', borderColor: '#fde68a', color: '#b45309', background: '#fffbeb' }}
+                                  title="Revoke admin access (convert to regular customer)"
                                 >
-                                  Revoke Admin
+                                  Revoke
                                 </button>
                                 <button
                                   onClick={() => handleDeleteAdmin(admin.id, admin.name)}
-                                  style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', background: 'none', border: '1px solid #fee2e2', color: '#dc2626', borderRadius: '6px', cursor: 'pointer' }}
+                                  style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem', background: 'none', border: '1px solid #fee2e2', color: '#dc2626', borderRadius: '6px', cursor: 'pointer' }}
                                   title="Delete account permanently"
                                 >
                                   <Trash2 size={13} />
@@ -4460,10 +4601,85 @@ const AdminDashboard = ({ currentUser }) => {
         )}
       </div>
 
-      {/* --- CREATE ADMIN MODAL --- */}
+      {/* --- EDIT PERMISSIONS MODAL --- */}
+      {editingAdminPermissions && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setEditingAdminPermissions(null)}>
+          <div className="modal-content admin-modal animate-fade-up" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setEditingAdminPermissions(null)}>
+              <X size={20} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldCheck size={18} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Edit Staff Permissions</h2>
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.2rem' }}>
+              Configure what <strong>{editingAdminPermissions.name}</strong> ({editingAdminPermissions.email}) is permitted to manage.
+            </p>
+
+            <form onSubmit={handleSaveAdminPermissions}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                {availablePermissionList.map((perm) => {
+                  const isChecked = selectedPermissions.includes(perm.id);
+                  return (
+                    <label 
+                      key={perm.id} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        gap: '0.75rem', 
+                        padding: '0.75rem', 
+                        borderRadius: '8px', 
+                        border: isChecked ? '1.5px solid #0284c7' : '1px solid #e2e8f0', 
+                        background: isChecked ? '#f0f9ff' : '#fff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <input 
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPermissions(prev => [...prev, perm.id]);
+                          } else {
+                            setSelectedPermissions(prev => prev.filter(x => x !== perm.id));
+                          }
+                        }}
+                        style={{ marginTop: '0.2rem', width: '16px', height: '16px', accentColor: '#0284c7' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: '700', fontSize: '0.88rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{perm.icon}</span> {perm.label}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px' }}>
+                          {perm.desc}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
+                <button type="button" className="btn-secondary" onClick={() => setEditingAdminPermissions(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={isSavingPermissions} style={{ background: '#0284c7' }}>
+                  {isSavingPermissions ? 'Saving...' : 'Save Permissions'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* --- CREATE ADMIN MODAL WITH PERMISSIONS --- */}
       {isCreateAdminModalOpen && createPortal(
         <div className="modal-overlay animate-fade-in" onClick={() => setIsCreateAdminModalOpen(false)}>
-          <div className="modal-content admin-modal animate-fade-up" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content admin-modal animate-fade-up" style={{ maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setIsCreateAdminModalOpen(false)}>
               <X size={20} />
             </button>
@@ -4471,15 +4687,15 @@ const AdminDashboard = ({ currentUser }) => {
               <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <UserPlus size={18} />
               </div>
-              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Add New Administrator</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Add Staff Administrator</h2>
             </div>
-            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Create an admin account for a team member to grant access to the store dashboard.
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.2rem' }}>
+              Create an admin account and select the modules they are authorized to access.
             </p>
 
             <form onSubmit={handleCreateAdmin}>
-              <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+              <div className="admin-form-group" style={{ marginBottom: '0.85rem' }}>
+                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
                   Full Name *
                 </label>
                 <input 
@@ -4488,12 +4704,12 @@ const AdminDashboard = ({ currentUser }) => {
                   placeholder="e.g. Sarah Mansouri"
                   value={newAdminForm.name}
                   onChange={(e) => setNewAdminForm(prev => ({ ...prev, name: e.target.value }))}
-                  style={{ width: '100%', padding: '0.65rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
                 />
               </div>
 
-              <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+              <div className="admin-form-group" style={{ marginBottom: '0.85rem' }}>
+                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
                   Email Address *
                 </label>
                 <input 
@@ -4502,36 +4718,82 @@ const AdminDashboard = ({ currentUser }) => {
                   placeholder="e.g. sarah@aura.com"
                   value={newAdminForm.email}
                   onChange={(e) => setNewAdminForm(prev => ({ ...prev, email: e.target.value }))}
-                  style={{ width: '100%', padding: '0.65rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
                 />
               </div>
 
-              <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
-                  Password * (Min 6 characters)
-                </label>
-                <input 
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={newAdminForm.password}
-                  onChange={(e) => setNewAdminForm(prev => ({ ...prev, password: e.target.value }))}
-                  style={{ width: '100%', padding: '0.65rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
+                <div className="admin-form-group">
+                  <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+                    Password *
+                  </label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="Min 6 chars"
+                    value={newAdminForm.password}
+                    onChange={(e) => setNewAdminForm(prev => ({ ...prev, password: e.target.value }))}
+                    style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+                    Confirm Password *
+                  </label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="Repeat password"
+                    value={newAdminForm.confirmPassword}
+                    onChange={(e) => setNewAdminForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  />
+                </div>
               </div>
 
-              <div className="admin-form-group" style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
-                  Confirm Password *
+              {/* Module Permissions Checklist */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '0.85rem', marginBottom: '0.4rem', color: '#0f172a' }}>
+                  Authorized Modules & Permissions:
                 </label>
-                <input 
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={newAdminForm.confirmPassword}
-                  onChange={(e) => setNewAdminForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                  style={{ width: '100%', padding: '0.65rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {availablePermissionList.map((perm) => {
+                    const isChecked = (newAdminForm.permissions || []).includes(perm.id);
+                    return (
+                      <label 
+                        key={perm.id} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.6rem', 
+                          padding: '0.55rem 0.75rem', 
+                          borderRadius: '6px', 
+                          border: isChecked ? '1.5px solid #0f172a' : '1px solid #e2e8f0', 
+                          background: isChecked ? '#f8fafc' : '#fff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const cur = newAdminForm.permissions || [];
+                            if (e.target.checked) {
+                              setNewAdminForm(prev => ({ ...prev, permissions: [...cur, perm.id] }));
+                            } else {
+                              setNewAdminForm(prev => ({ ...prev, permissions: cur.filter(x => x !== perm.id) }));
+                            }
+                          }}
+                          style={{ width: '15px', height: '15px', accentColor: '#0f172a' }}
+                        />
+                        <span style={{ fontSize: '0.84rem', fontWeight: '600', color: '#1e293b' }}>
+                          {perm.icon} {perm.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem' }}>
