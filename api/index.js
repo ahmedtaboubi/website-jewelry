@@ -834,6 +834,75 @@ app.patch('/api/products/:id/stock', async (req, res) => {
   }
 });
 
+// 14.1 GET /api/admin/customers
+app.get('/api/admin/customers', async (req, res) => {
+  try {
+    const usersRes = await turso.execute(`
+      SELECT id, name, email, phone, address, city, zipCode, role, is_admin, created_at 
+      FROM users 
+      ORDER BY id DESC
+    `);
+
+    const ordersRes = await turso.execute(`
+      SELECT id, user_id, total, status, shipping_details, created_at 
+      FROM orders
+    `);
+
+    // Build customer aggregation
+    const customers = usersRes.rows.map(user => {
+      const userOrders = ordersRes.rows.filter(o => {
+        if (o.user_id && Number(o.user_id) === Number(user.id)) return true;
+        if (o.shipping_details) {
+          try {
+            const ship = typeof o.shipping_details === 'string' ? JSON.parse(o.shipping_details) : o.shipping_details;
+            if (ship?.email && ship.email.toLowerCase() === user.email.toLowerCase()) return true;
+          } catch(e) {}
+        }
+        return false;
+      });
+
+      const totalSpent = userOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+      const lastOrder = userOrders.length > 0 
+        ? userOrders.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] 
+        : null;
+
+      let recentCity = user.city || '';
+      let recentPhone = user.phone || '';
+      let recentAddress = user.address || '';
+
+      if (lastOrder && lastOrder.shipping_details) {
+        try {
+          const ship = typeof lastOrder.shipping_details === 'string' ? JSON.parse(lastOrder.shipping_details) : lastOrder.shipping_details;
+          if (!recentCity && ship?.city) recentCity = ship.city;
+          if (!recentPhone && ship?.phone) recentPhone = ship.phone;
+          if (!recentAddress && ship?.address) recentAddress = ship.address;
+        } catch(e) {}
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: recentPhone,
+        city: recentCity,
+        address: recentAddress,
+        zipCode: user.zipCode || '',
+        role: user.role || (user.is_admin ? 'admin' : 'customer'),
+        is_admin: user.is_admin || 0,
+        orders_count: userOrders.length,
+        total_spent: totalSpent,
+        last_order_date: lastOrder ? lastOrder.created_at : null,
+        created_at: user.created_at
+      };
+    });
+
+    res.json({ customers });
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    res.status(500).json({ error: 'Failed to fetch customer list' });
+  }
+});
+
 // 15. Admin Team Management
 app.get('/api/admin/team', async (req, res) => {
   try {

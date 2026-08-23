@@ -7,7 +7,8 @@ import {
   CalendarDays, Sliders, ChevronRight, Info, CheckCircle2, Sun, Moon, HelpCircle,
   MapPin, Globe, ShieldCheck, ShieldAlert, Navigation, Layers, Boxes, Tag, Truck,
   Star, MessageSquare, ThumbsUp, CheckCircle, Check, XCircle, AlertCircle, Camera,
-  UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink, AlertTriangle
+  UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink, AlertTriangle,
+  Mail, PhoneCall, Download
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -29,6 +30,28 @@ const AdminDashboard = ({ currentUser }) => {
   const [reviewFilterStatus, setReviewFilterStatus] = useState('all');
   const [reviewSearchQuery, setReviewSearchQuery] = useState('');
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
+
+  // --- CUSTOMERS & CRM STATE ---
+  const [customers, setCustomers] = useState([]);
+  const [isCustomersLoading, setIsCustomersLoading] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [customerSegmentFilter, setCustomerSegmentFilter] = useState('all'); // 'all', 'buyers', 'vip', 'leads'
+  const [selectedCustomerForOrders, setSelectedCustomerForOrders] = useState(null);
+
+  const fetchCustomers = async () => {
+    try {
+      setIsCustomersLoading(true);
+      const res = await fetch('/api/admin/customers');
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data.customers || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch customers:', e);
+    } finally {
+      setIsCustomersLoading(false);
+    }
+  };
 
   // --- ADMIN TEAM MANAGEMENT & PERMISSIONS STATE ---
   const [adminTeam, setAdminTeam] = useState([]);
@@ -98,6 +121,7 @@ const AdminDashboard = ({ currentUser }) => {
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   const availablePermissionList = [
+    { id: 'customers', label: 'Customers Directory & CRM', desc: 'View customer accounts, contact details, LTV, and order history', icon: '👥' },
     { id: 'orders', label: 'Orders & Fulfillment', desc: 'View customer orders, update shipping status, and customer details', icon: '📦' },
     { id: 'products', label: 'Products & Inventory', desc: 'Add/edit jewelry products, adjust prices, and manage stock levels', icon: '💎' },
     { id: 'reviews', label: 'Customer Reviews Moderation', desc: 'Approve, reject, and moderate product ratings and reviews', icon: '⭐' },
@@ -565,6 +589,7 @@ const AdminDashboard = ({ currentUser }) => {
     await fetchIngredients();
     await fetchAdSpends();
     await fetchAdminReviews();
+    await fetchCustomers();
     await fetchAdminTeam();
     setTimeout(() => setIsRefreshing(false), 500);
   };
@@ -573,17 +598,20 @@ const AdminDashboard = ({ currentUser }) => {
     fetchProducts();
     fetchIngredients();
     fetchOrders();
+    fetchCustomers();
 
     if (currentUser?.is_admin) {
       fetchOrders();
       fetchAdSpends();
       fetchAdminReviews();
+      fetchCustomers();
 
       const interval = setInterval(() => {
         fetchOrders();
         fetchAdSpends();
         fetchProducts();
         fetchAdminReviews();
+        fetchCustomers();
         refreshSessionUser();
       }, 4000); // Live poll every 4s for instant stock, order, review & permission updates
 
@@ -1705,6 +1733,20 @@ const AdminDashboard = ({ currentUser }) => {
             <BarChart3 size={18} /> Analytics & Media Buying
             <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'analytics' ? 'rgba(255,255,255,0.2)' : '#ecfdf5', color: activeTab === 'analytics' ? '#fff' : '#059669' }}>
               ⚡ Pro Intel
+            </span>
+          </button>
+        )}
+        {hasPermission('customers') && (
+          <button 
+            className={`admin-tab ${activeTab === 'customers' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('customers');
+              fetchCustomers();
+            }}
+          >
+            <Users size={18} /> Customers & CRM
+            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'customers' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'customers' ? '#fff' : '#475569' }}>
+              {customers.length}
             </span>
           </button>
         )}
@@ -4511,6 +4553,288 @@ const AdminDashboard = ({ currentUser }) => {
           </div>
         )}
 
+        {/* --- CUSTOMERS & CRM DIRECTORY PANEL --- */}
+        {activeTab === 'customers' && hasPermission('customers') && (
+          <div className="admin-panel animate-fade-in">
+            <div className="admin-panel-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h2>👥 Customer Directory & CRM Intelligence</h2>
+                <p>Track all registered customer accounts, contact details, purchase history, and lifetime value.</p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => fetchCustomers()}
+                  disabled={isCustomersLoading}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <RotateCw size={16} className={isCustomersLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
+            </div>
+
+            {/* Customer KPI Metric Cards */}
+            {(() => {
+              const totalSpentAll = customers.reduce((sum, c) => sum + (c.total_spent || 0), 0);
+              const repeatBuyers = customers.filter(c => (c.orders_count || 0) > 1);
+              const buyersOnly = customers.filter(c => (c.orders_count || 0) > 0);
+              const repeatRate = buyersOnly.length > 0 ? ((repeatBuyers.length / buyersOnly.length) * 100).toFixed(0) : 0;
+              const topCityMap = {};
+              customers.forEach(c => {
+                if (c.city && c.city.trim()) {
+                  topCityMap[c.city.trim()] = (topCityMap[c.city.trim()] || 0) + 1;
+                }
+              });
+              const topCityName = Object.keys(topCityMap).sort((a,b) => topCityMap[b] - topCityMap[a])[0] || 'Casablanca';
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>Total Registered</span>
+                      <Users size={18} color="#0f172a" />
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#0f172a', marginTop: '0.4rem' }}>
+                      {customers.length}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Customer profiles in database</div>
+                  </div>
+
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#047857' }}>Customer Lifetime Value</span>
+                      <DollarSign size={18} color="#059669" />
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#065f46', marginTop: '0.4rem' }}>
+                      {totalSpentAll.toLocaleString()} DH
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#047857' }}>Total revenue across all customers</div>
+                  </div>
+
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1d4ed8' }}>Repeat Buyers</span>
+                      <Repeat size={18} color="#2563eb" />
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '800', color: '#1e40af', marginTop: '0.4rem' }}>
+                      {repeatBuyers.length} <span style={{ fontSize: '1rem', fontWeight: '600', color: '#3b82f6' }}>({repeatRate}%)</span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>Customers with 2+ orders</div>
+                  </div>
+
+                  <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#7e22ce' }}>Top Hub City</span>
+                      <MapPin size={18} color="#9333ea" />
+                    </div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#6b21a8', marginTop: '0.4rem' }}>
+                      {topCityName}
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#7e22ce' }}>Highest customer concentration</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Filter & Search Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', background: '#fff', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: '1', minWidth: '260px' }}>
+                <Filter size={16} color="#64748b" />
+                <input 
+                  type="text"
+                  placeholder="Search by customer name, email, phone, city..."
+                  value={customerSearchQuery}
+                  onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                  style={{ width: '100%', padding: '0.55rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {[
+                  { id: 'all', label: 'All Customers' },
+                  { id: 'buyers', label: 'Buyers (≥ 1 Order)' },
+                  { id: 'vip', label: 'VIP Repeat (≥ 2 Orders)' },
+                  { id: 'leads', label: 'Leads (0 Orders)' }
+                ].map((seg) => (
+                  <button
+                    key={seg.id}
+                    onClick={() => setCustomerSegmentFilter(seg.id)}
+                    style={{
+                      padding: '0.45rem 0.85rem',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: '600',
+                      border: customerSegmentFilter === seg.id ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                      background: customerSegmentFilter === seg.id ? '#0f172a' : '#fff',
+                      color: customerSegmentFilter === seg.id ? '#fff' : '#475569',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {seg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Customers Table */}
+            {(() => {
+              const filteredCustomers = customers.filter(c => {
+                // Segment filter
+                if (customerSegmentFilter === 'buyers' && (c.orders_count || 0) < 1) return false;
+                if (customerSegmentFilter === 'vip' && (c.orders_count || 0) < 2) return false;
+                if (customerSegmentFilter === 'leads' && (c.orders_count || 0) > 0) return false;
+
+                // Search query
+                if (customerSearchQuery.trim()) {
+                  const q = customerSearchQuery.toLowerCase();
+                  const matchName = (c.name || '').toLowerCase().includes(q);
+                  const matchEmail = (c.email || '').toLowerCase().includes(q);
+                  const matchPhone = (c.phone || '').toLowerCase().includes(q);
+                  const matchCity = (c.city || '').toLowerCase().includes(q);
+                  const matchAddr = (c.address || '').toLowerCase().includes(q);
+                  if (!matchName && !matchEmail && !matchPhone && !matchCity && !matchAddr) return false;
+                }
+                return true;
+              });
+
+              return (
+                <div className="admin-table-container">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Customer Profile</th>
+                        <th>Email Address</th>
+                        <th>Phone & WhatsApp</th>
+                        <th>City & Shipping Address</th>
+                        <th>Order History</th>
+                        <th>Lifetime Spend (LTV)</th>
+                        <th>Registered</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCustomers.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+                            {customerSearchQuery ? 'No customer profiles found matching your search.' : 'No registered customers yet.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredCustomers.map((cust) => {
+                          const isStaff = cust.role === 'admin' || cust.role === 'super_admin' || cust.is_admin === 1;
+                          const cleanPhone = (cust.phone || '').replace(/[^0-9]/g, '');
+
+                          return (
+                            <tr key={cust.id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.85rem', border: '1px solid #cbd5e1' }}>
+                                    {(cust.name || 'C')[0].toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: '700', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {cust.name || 'Anonymous User'}
+                                      {isStaff && (
+                                        <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.65rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '8px' }}>
+                                          Staff
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID #{cust.id}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <a 
+                                  href={`mailto:${cust.email}`} 
+                                  style={{ color: '#0284c7', fontWeight: '500', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  title="Send Email"
+                                >
+                                  <Mail size={13} /> {cust.email}
+                                </a>
+                              </td>
+                              <td>
+                                {cust.phone ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <a 
+                                      href={`tel:${cust.phone}`} 
+                                      style={{ color: '#334155', fontWeight: '600', textDecoration: 'none', fontSize: '0.82rem' }}
+                                    >
+                                      {cust.phone}
+                                    </a>
+                                    <a 
+                                      href={`https://wa.me/${cleanPhone.startsWith('212') ? cleanPhone : (cleanPhone.startsWith('0') ? '212' + cleanPhone.slice(1) : cleanPhone)}`}
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ background: '#25D366', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '700', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                                      title="Open WhatsApp Chat"
+                                    >
+                                      WA
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No phone</span>
+                                )}
+                              </td>
+                              <td>
+                                <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: '600' }}>
+                                  {cust.city ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                      <MapPin size={12} color="#64748b" /> {cust.city}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>City not set</span>
+                                  )}
+                                </div>
+                                {cust.address && (
+                                  <div style={{ fontSize: '0.74rem', color: '#64748b', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={cust.address}>
+                                    {cust.address}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                {cust.orders_count > 0 ? (
+                                  <span style={{ background: cust.orders_count > 1 ? '#eff6ff' : '#f8fafc', color: cust.orders_count > 1 ? '#1d4ed8' : '#334155', border: '1px solid #cbd5e1', padding: '0.2rem 0.55rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                    {cust.orders_count} {cust.orders_count === 1 ? 'Order' : 'Orders'}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>0 Orders</span>
+                                )}
+                              </td>
+                              <td>
+                                <span style={{ fontWeight: '800', color: cust.total_spent > 0 ? '#059669' : '#64748b', fontSize: '0.88rem' }}>
+                                  {cust.total_spent > 0 ? `${cust.total_spent.toFixed(0)} DH` : '0 DH'}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                {parseOrderDate(cust.created_at || Date.now()).toLocaleDateString()}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                {cust.orders_count > 0 ? (
+                                  <button
+                                    className="btn-secondary"
+                                    onClick={() => setSelectedCustomerForOrders(cust)}
+                                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    View Orders ({cust.orders_count})
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No Orders</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* --- TEAM & ADMINS MANAGEMENT PANEL --- */}
         {activeTab === 'team' && isSuperAdmin && (
           <div className="admin-panel animate-fade-in">
@@ -4977,6 +5301,90 @@ const AdminDashboard = ({ currentUser }) => {
                 }}
               >
                 {confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* --- CUSTOMER ORDER HISTORY MODAL --- */}
+      {selectedCustomerForOrders && createPortal(
+        <div className="modal-overlay animate-fade-in" onClick={() => setSelectedCustomerForOrders(null)} style={{ zIndex: 99999 }}>
+          <div className="modal-content admin-modal animate-fade-up" style={{ maxWidth: '640px', maxHeight: '85vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setSelectedCustomerForOrders(null)}>
+              <X size={20} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShoppingBag size={18} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{selectedCustomerForOrders.name}&apos;s Orders</h2>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{selectedCustomerForOrders.email} • Total Lifetime: <strong>{selectedCustomerForOrders.total_spent} DH</strong></div>
+              </div>
+            </div>
+
+            {/* List all orders for this customer */}
+            {(() => {
+              const custOrders = orders.filter(o => {
+                if (o.user_id && Number(o.user_id) === Number(selectedCustomerForOrders.id)) return true;
+                if (o.shipping_details) {
+                  try {
+                    const ship = typeof o.shipping_details === 'string' ? JSON.parse(o.shipping_details) : o.shipping_details;
+                    if (ship?.email && ship.email.toLowerCase() === selectedCustomerForOrders.email.toLowerCase()) return true;
+                  } catch(e) {}
+                }
+                return false;
+              });
+
+              return custOrders.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>No orders found for this customer.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.2rem' }}>
+                  {custOrders.map((ord) => (
+                    <div key={ord.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem', background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.95rem', color: '#0f172a' }}>Order #{ord.id}</strong>
+                          <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '8px' }}>
+                            {parseOrderDate(ord.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <span style={{ 
+                          padding: '0.2rem 0.6rem', 
+                          borderRadius: '12px', 
+                          fontSize: '0.72rem', 
+                          fontWeight: '700',
+                          background: ord.status === 'Delivered' ? '#ecfdf5' : (ord.status === 'Shipped' ? '#eff6ff' : '#fef3c7'),
+                          color: ord.status === 'Delivered' ? '#047857' : (ord.status === 'Shipped' ? '#1d4ed8' : '#b45309')
+                        }}>
+                          {ord.status}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.85rem', color: '#334155', marginBottom: '0.6rem' }}>
+                        {ord.items && ord.items.map((it, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                            <span>{it.quantity}x {it.product_name}</span>
+                            <span style={{ fontWeight: '600' }}>{it.price * it.quantity} DH</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Paid:</span>
+                        <strong style={{ fontSize: '0.95rem', color: '#059669' }}>{ord.total} DH</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button type="button" className="btn-secondary" onClick={() => setSelectedCustomerForOrders(null)}>
+                Close
               </button>
             </div>
           </div>
