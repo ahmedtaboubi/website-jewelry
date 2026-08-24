@@ -326,14 +326,14 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
     ? reviewStats.totalReviews 
     : (parseInt((details.reviewCount || "14").toString().replace(/[^0-9]/g, '')) || 14);
 
-  const size = details.size || "Adjustable";
+  const size = details.size || "54 (Standard)";
   const categoryName = details.scentFamily || currentProduct.category || "Rings";
   const styleDescription = details.scentDescription || "Elegant, handcrafted design";
 
   const getCategorySizes = (cat) => {
     const c = (cat || '').toLowerCase();
     if (c.includes('ring') || c.includes('bague') || c.includes('خاتم')) {
-      return ['50 (US 5)', '52 (US 6)', '54 (US 7)', '56 (US 7.5)', '58 (US 8.5)', 'Adjustable'];
+      return ['50 (US 5)', '52 (US 6)', '54 (US 7)', '56 (US 7.5)', '58 (US 8.5)', '60 (US 9)'];
     }
     if (c.includes('necklace') || c.includes('collier') || c.includes('قلادة') || c.includes('choker') || c.includes('chain')) {
       return ['40 cm (16")', '45 cm (18")', '50 cm (20")', '60 cm (24")'];
@@ -618,7 +618,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
                 <div className="size-guide-content animate-fade-in">
                   <div className="size-guide-info-banner">
                     <Sparkles size={16} color="#b45309" />
-                    <span>Most of our rings feature an <strong>Adjustable Comfort Band</strong> that fits sizes 50 to 58 effortlessly.</span>
+                    <span>Choose your precise ring size from <strong>50 to 60 (US 5 to 9)</strong>. Consult the chart below to find your perfect fit.</span>
                   </div>
                   
                   <table className="size-guide-table">
