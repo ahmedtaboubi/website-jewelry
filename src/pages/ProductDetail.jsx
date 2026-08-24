@@ -622,22 +622,22 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
                 <div className="size-guide-content animate-fade-in">
                   <div className="size-guide-info-banner">
                     <Sparkles size={16} color="#b45309" />
-                    <span>Choose your precise ring size from <strong>50 to 60 (US 5 to 9)</strong>. Consult the chart below to find your perfect fit.</span>
+                    <span>{t('product_detail.size_guide_rings_banner')}</span>
                   </div>
                   
                   <table className="size-guide-table">
                     <thead>
                       <tr>
-                        <th>EU Size</th>
-                        <th>US Size</th>
-                        <th>Inside Diameter (mm)</th>
-                        <th>Circumference (mm)</th>
+                        <th>{t('product_detail.eu_size')}</th>
+                        <th>{t('product_detail.us_size')}</th>
+                        <th>{t('product_detail.inside_diameter')}</th>
+                        <th>{t('product_detail.circumference')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr><td>50</td><td>5.0</td><td>15.9 mm</td><td>50 mm</td></tr>
                       <tr><td>52</td><td>6.0</td><td>16.5 mm</td><td>52 mm</td></tr>
-                      <tr className="highlight-row"><td>54 (Standard)</td><td>7.0</td><td>17.2 mm</td><td>54 mm</td></tr>
+                      <tr className="highlight-row"><td>54 ({t('product_detail.standard_fit')})</td><td>7.0</td><td>17.2 mm</td><td>54 mm</td></tr>
                       <tr><td>56</td><td>7.5</td><td>17.8 mm</td><td>56 mm</td></tr>
                       <tr><td>58</td><td>8.5</td><td>18.5 mm</td><td>58 mm</td></tr>
                       <tr><td>60</td><td>9.0</td><td>19.1 mm</td><td>60 mm</td></tr>
@@ -647,9 +647,9 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
                   <div className="measurement-steps">
                     <h4>📏 {t('product_detail.how_to_measure')}:</h4>
                     <ol>
-                      <li>Wrap a thin strip of paper or string snugly around your finger.</li>
-                      <li>Mark the overlap point with a pen.</li>
-                      <li>Measure against a ruler in millimeters to find your size.</li>
+                      <li>{t('product_detail.measure_step_1')}</li>
+                      <li>{t('product_detail.measure_step_2')}</li>
+                      <li>{t('product_detail.measure_step_3')}</li>
                     </ol>
                   </div>
                 </div>
@@ -661,25 +661,25 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
                     <div className="necklace-level-item">
                       <span className="necklace-badge">40 cm (16")</span>
                       <div className="necklace-desc">
-                        <strong>Choker Style</strong> — Rests at base of the neck.
+                        <strong>{t('product_detail.choker_title')}</strong> — {t('product_detail.choker_desc')}
                       </div>
                     </div>
                     <div className="necklace-level-item highlight">
                       <span className="necklace-badge">45 cm (18")</span>
                       <div className="necklace-desc">
-                        <strong>Princess Length (Standard)</strong> — Sits gracefully on the collarbone.
+                        <strong>{t('product_detail.princess_title')}</strong> — {t('product_detail.princess_desc')}
                       </div>
                     </div>
                     <div className="necklace-level-item">
                       <span className="necklace-badge">50 cm (20")</span>
                       <div className="necklace-desc">
-                        <strong>Matinee Length</strong> — Rests a few inches below collarbone for pendants.
+                        <strong>{t('product_detail.matinee_title')}</strong> — {t('product_detail.matinee_desc')}
                       </div>
                     </div>
                     <div className="necklace-level-item">
                       <span className="necklace-badge">60 cm (24")</span>
                       <div className="necklace-desc">
-                        <strong>Opera Length</strong> — Long dramatic drop.
+                        <strong>{t('product_detail.opera_title')}</strong> — {t('product_detail.opera_desc')}
                       </div>
                     </div>
                   </div>
@@ -690,21 +690,21 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
                 <div className="size-guide-content animate-fade-in">
                   <div className="size-guide-info-banner">
                     <CheckCircle size={16} color="#059669" />
-                    <span>All Aura chain bracelets come with a <strong>3cm extension chain</strong> for customized fit.</span>
+                    <span>{t('product_detail.bracelet_banner_text')}</span>
                   </div>
 
                   <table className="size-guide-table">
                     <thead>
                       <tr>
-                        <th>Wrist Circumference</th>
-                        <th>Recommended Size</th>
-                        <th>Fit Feeling</th>
+                        <th>{t('product_detail.wrist_circumference')}</th>
+                        <th>{t('product_detail.recommended_size')}</th>
+                        <th>{t('product_detail.fit_feeling')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr><td>14 - 15 cm</td><td>Small (16 cm + 3cm ext)</td><td>Delicate / Snug</td></tr>
-                      <tr className="highlight-row"><td>15.5 - 17 cm</td><td>Medium (17.5 cm + 3cm ext)</td><td>Standard Comfort</td></tr>
-                      <tr><td>17.5 - 19 cm</td><td>Large (19 cm + 3cm ext)</td><td>Relaxed Drape</td></tr>
+                      <tr><td>14 - 15 cm</td><td>{t('product_detail.small_label')}</td><td>{t('product_detail.small_desc')}</td></tr>
+                      <tr className="highlight-row"><td>15.5 - 17 cm</td><td>{t('product_detail.medium_label')}</td><td>{t('product_detail.medium_desc')}</td></tr>
+                      <tr><td>17.5 - 19 cm</td><td>{t('product_detail.large_label')}</td><td>{t('product_detail.large_desc')}</td></tr>
                     </tbody>
                   </table>
                 </div>
