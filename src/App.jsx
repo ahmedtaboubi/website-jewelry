@@ -178,7 +178,18 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const goToBundle = () => {
+  const goToBundle = (initialProduct = null) => {
+    if (initialProduct && initialProduct.id) {
+      try {
+        const saved = localStorage.getItem('aura_bundle_items');
+        let items = saved ? JSON.parse(saved) : [];
+        if (!items.some(i => i.id === initialProduct.id)) {
+          items.push(initialProduct);
+          localStorage.setItem('aura_bundle_items', JSON.stringify(items));
+        }
+      } catch (e) {}
+      showToast(i18n.language === 'ar' ? `✨ تمت إضافة ${initialProduct.name} إلى صندوق المجموعة!` : (i18n.language === 'fr' ? `✨ ${initialProduct.name} ajouté à votre Coffret !` : `✨ Added ${initialProduct.name} to your Custom Bundle!`));
+    }
     setCurrentPage('bundle');
     setSelectedProduct(null);
     setSearchQuery('');
@@ -218,12 +229,12 @@ function App() {
       window.history.pushState({}, '', '/checkout');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      showToast('Your cart is empty');
+      showToast('Your cart is empty', 'error');
     }
   };
 
-  const showToast = (message) => {
-    setToast({ isVisible: true, message });
+  const showToast = (message, type = 'info') => {
+    setToast({ isVisible: true, message, type });
   };
 
   const hideToast = () => {
@@ -431,7 +442,15 @@ function App() {
       )}
       
       {currentPage === 'product' && (
-        <ProductDetail product={selectedProduct} onBack={goToHome} addToCart={addToCart} showToast={showToast} />
+        <ProductDetail 
+          product={selectedProduct} 
+          onBack={goToHome} 
+          addToCart={addToCart} 
+          showToast={showToast} 
+          goToBundle={goToBundle}
+          onProductClick={goToProduct}
+          goToShop={goToShop}
+        />
       )}
 
       {currentPage === 'bundle' && (

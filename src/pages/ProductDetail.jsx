@@ -3,18 +3,36 @@ import { useTranslation } from 'react-i18next';
 import { 
   ChevronDown, ChevronUp, Leaf, Droplet, Star, CheckCircle, ThumbsUp, 
   MessageSquare, Plus, X, ShieldCheck, Camera, Image as ImageIcon, Trash2,
-  Flame, Clock
+  Flame, Clock, ZoomIn, Ruler, Gift, Sparkles, ShoppingBag, ArrowRight,
+  Truck
 } from 'lucide-react';
 import { formatCurrency } from '../utils/currency';
 import './ProductDetail.css';
 
-const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
+const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onProductClick }) => {
   const { t, i18n } = useTranslation();
   const [currentProduct, setCurrentProduct] = useState(product);
   const [isLoading, setIsLoading] = useState(!product);
   const [ingredientsLibrary, setIngredientsLibrary] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isNotesOpen, setIsNotesOpen] = useState(true);
+  const [activeImgIndex, setActiveImgIndex] = useState(0);
+
+  // High-Res Zoom States
+  const [isZooming, setIsZooming] = useState(false);
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+
+  // Size Guide & Gift States
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [sizeGuideTab, setSizeGuideTab] = useState('rings');
+  const [isGift, setIsGift] = useState(false);
+  const [giftMessage, setGiftMessage] = useState('');
+
+  // Related Products ("Complete the Look")
+  const [relatedProducts, setRelatedProducts] = useState([]);
+
+  // Live Morocco Express Delivery Countdown
+  const [countdown, setCountdown] = useState({ hours: '03', minutes: '24', seconds: '50' });
 
   // Reviews & Rating states
   const [reviews, setReviews] = useState([]);
@@ -36,13 +54,46 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
   const [helpfulVoted, setHelpfulVoted] = useState({});
   const [selectedStarFilter, setSelectedStarFilter] = useState('all');
 
+  // Express Delivery Countdown Hook (Cutoff at 18:00 Morocco time)
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const cutoff = new Date();
+      cutoff.setHours(18, 0, 0, 0);
+      if (now > cutoff) {
+        cutoff.setDate(cutoff.getDate() + 1);
+      }
+      const diff = Math.max(0, cutoff - now);
+      const hours = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+      const minutes = String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0');
+      const seconds = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
+      setCountdown({ hours, minutes, seconds });
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch Related Products for "Complete the Look"
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => {
+        if (Array.isArray(data)) {
+          const currentId = currentProduct?.id;
+          const others = data.filter(p => p.id !== currentId);
+          setRelatedProducts(others.slice(0, 3));
+        }
+      })
+      .catch(console.error);
+  }, [currentProduct?.id]);
+
   const handlePhotoSelect = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const combined = [...reviewPhotos, ...files].slice(0, 4);
     setReviewPhotos(combined);
-    
-    // Generate preview URLs
     const previews = combined.map(file => URL.createObjectURL(file));
     setPhotoPreviews(previews);
   };
@@ -54,10 +105,18 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
     setPhotoPreviews(updatedPreviews);
   };
 
+  const handleMouseMoveZoom = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setZoomPos({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+
   useEffect(() => {
     if (product) {
       setCurrentProduct(product);
       setIsLoading(false);
+      setActiveImgIndex(0);
     } else {
       const match = window.location.pathname.match(/\/product\/([^\/?#]+)/);
       const id = match ? match[1] : null;
@@ -68,6 +127,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
           .then(data => {
             if (data && !data.error) {
               setCurrentProduct(data);
+              setActiveImgIndex(0);
             } else {
               setCurrentProduct(null);
             }
@@ -91,7 +151,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
       .catch(console.error);
   }, []);
 
-  // Fetch approved product reviews
   const loadProductReviews = async (productId) => {
     if (!productId) return;
     setIsReviewsLoading(true);
@@ -129,7 +188,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
 
   const handleHelpfulClick = async (reviewId) => {
     if (helpfulVoted[reviewId]) return;
-    // Optimistic UI increment
     setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: (Number(r.helpful_count) || 0) + 1 } : r));
     setHelpfulVoted(prev => ({ ...prev, [reviewId]: true }));
     if (showToast) showToast(t('reviews.helpful') + ' +1');
@@ -216,6 +274,13 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
     }
   };
 
+  const handleAddMatchingSet = (matchingProduct) => {
+    if (!matchingProduct) return;
+    addToCart(currentProduct);
+    addToCart(matchingProduct);
+    if (showToast) showToast('Added matching set to your cart!');
+  };
+
   if (isLoading) {
     return <div style={{ padding: '100px', textAlign: 'center' }}>{t('product_detail.loading', 'Loading product...')}</div>;
   }
@@ -231,7 +296,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
     );
   }
 
-  // Parse details if available, otherwise use defaults
   let details = {};
   try {
     if (currentProduct.details) {
@@ -241,7 +305,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
     console.error('Failed to parse product details', e);
   }
 
-  // Prepare images array: main image + gallery images
   let images = [currentProduct.image || ''];
   if (details.images && Array.isArray(details.images) && details.images.length > 0) {
     images = [...images, ...details.images];
@@ -320,7 +383,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
 
   const ingredients = details.ingredients || "Premium 316L Stainless Steel (Acier Inoxydable), High-grade XP Alloy, Brilliant Cubic Zirconia Crystals, Natural Gemstones. 100% Waterproof, Tarnish-free & Hypoallergenic.";
 
-  // Filtered reviews
   const filteredReviews = reviews.filter(r => {
     if (selectedStarFilter === 'all') return true;
     return r.rating === parseInt(selectedStarFilter, 10);
@@ -434,7 +496,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
                   ></textarea>
                 </div>
 
-                {/* Customer Photo Upload Section */}
                 <div className="review-form-group">
                   <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{t('reviews.upload_photos')}</span>
@@ -493,23 +554,190 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
         </div>
       )}
 
+      {/* Interactive Size Guide Modal */}
+      {isSizeGuideOpen && (
+        <div className="size-guide-modal-overlay animate-fade-in" onClick={() => setIsSizeGuideOpen(false)}>
+          <div className="size-guide-modal-card animate-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="size-guide-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Ruler size={20} color="#b45309" />
+                <h3>{t('product_detail.size_guide_title')}</h3>
+              </div>
+              <button className="btn-close-modal" onClick={() => setIsSizeGuideOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Size Guide Category Tabs */}
+            <div className="size-guide-tabs">
+              <button 
+                className={`size-guide-tab ${sizeGuideTab === 'rings' ? 'active' : ''}`}
+                onClick={() => setSizeGuideTab('rings')}
+              >
+                💍 {t('product_detail.ring_sizes')}
+              </button>
+              <button 
+                className={`size-guide-tab ${sizeGuideTab === 'necklaces' ? 'active' : ''}`}
+                onClick={() => setSizeGuideTab('necklaces')}
+              >
+                📿 {t('product_detail.necklace_sizes')}
+              </button>
+              <button 
+                className={`size-guide-tab ${sizeGuideTab === 'bracelets' ? 'active' : ''}`}
+                onClick={() => setSizeGuideTab('bracelets')}
+              >
+                ✨ {t('product_detail.bracelet_sizes')}
+              </button>
+            </div>
+
+            <div className="size-guide-modal-body">
+              {sizeGuideTab === 'rings' && (
+                <div className="size-guide-content animate-fade-in">
+                  <div className="size-guide-info-banner">
+                    <Sparkles size={16} color="#b45309" />
+                    <span>Most of our rings feature an <strong>Adjustable Comfort Band</strong> that fits sizes 50 to 58 effortlessly.</span>
+                  </div>
+                  
+                  <table className="size-guide-table">
+                    <thead>
+                      <tr>
+                        <th>EU Size</th>
+                        <th>US Size</th>
+                        <th>Inside Diameter (mm)</th>
+                        <th>Circumference (mm)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>50</td><td>5.0</td><td>15.9 mm</td><td>50 mm</td></tr>
+                      <tr><td>52</td><td>6.0</td><td>16.5 mm</td><td>52 mm</td></tr>
+                      <tr className="highlight-row"><td>54 (Standard)</td><td>7.0</td><td>17.2 mm</td><td>54 mm</td></tr>
+                      <tr><td>56</td><td>7.5</td><td>17.8 mm</td><td>56 mm</td></tr>
+                      <tr><td>58</td><td>8.5</td><td>18.5 mm</td><td>58 mm</td></tr>
+                      <tr><td>60</td><td>9.0</td><td>19.1 mm</td><td>60 mm</td></tr>
+                    </tbody>
+                  </table>
+
+                  <div className="measurement-steps">
+                    <h4>📏 {t('product_detail.how_to_measure')}:</h4>
+                    <ol>
+                      <li>Wrap a thin strip of paper or string snugly around your finger.</li>
+                      <li>Mark the overlap point with a pen.</li>
+                      <li>Measure against a ruler in millimeters to find your size.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {sizeGuideTab === 'necklaces' && (
+                <div className="size-guide-content animate-fade-in">
+                  <div className="necklace-visual-diagram">
+                    <div className="necklace-level-item">
+                      <span className="necklace-badge">40 cm (16")</span>
+                      <div className="necklace-desc">
+                        <strong>Choker Style</strong> — Rests at base of the neck.
+                      </div>
+                    </div>
+                    <div className="necklace-level-item highlight">
+                      <span className="necklace-badge">45 cm (18")</span>
+                      <div className="necklace-desc">
+                        <strong>Princess Length (Standard)</strong> — Sits gracefully on the collarbone.
+                      </div>
+                    </div>
+                    <div className="necklace-level-item">
+                      <span className="necklace-badge">50 cm (20")</span>
+                      <div className="necklace-desc">
+                        <strong>Matinee Length</strong> — Rests a few inches below collarbone for pendants.
+                      </div>
+                    </div>
+                    <div className="necklace-level-item">
+                      <span className="necklace-badge">60 cm (24")</span>
+                      <div className="necklace-desc">
+                        <strong>Opera Length</strong> — Long dramatic drop.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {sizeGuideTab === 'bracelets' && (
+                <div className="size-guide-content animate-fade-in">
+                  <div className="size-guide-info-banner">
+                    <CheckCircle size={16} color="#059669" />
+                    <span>All Aura chain bracelets come with a <strong>3cm extension chain</strong> for customized fit.</span>
+                  </div>
+
+                  <table className="size-guide-table">
+                    <thead>
+                      <tr>
+                        <th>Wrist Circumference</th>
+                        <th>Recommended Size</th>
+                        <th>Fit Feeling</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><td>14 - 15 cm</td><td>Small (16 cm + 3cm ext)</td><td>Delicate / Snug</td></tr>
+                      <tr className="highlight-row"><td>15.5 - 17 cm</td><td>Medium (17.5 cm + 3cm ext)</td><td>Standard Comfort</td></tr>
+                      <tr><td>17.5 - 19 cm</td><td>Large (19 cm + 3cm ext)</td><td>Relaxed Drape</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="container dossier-layout">
         
-        {/* Left Side: Images */}
-        <div className="dossier-images">
-          {images.map((img, index) => (
-            <div 
-              key={index} 
-              className={`dossier-img-wrapper ${index === 0 ? 'hero' : ''}`}
-              onClick={() => setSelectedImage(img)}
-              style={{ cursor: 'pointer' }}
-            >
-              <img src={img} alt={`${currentProduct.name} ${index + 1}`} className="dossier-img" />
+        {/* Left Side: Interactive Image Gallery with Magnifier Zoom */}
+        <div className="dossier-gallery-column">
+          <div 
+            className="hero-image-zoom-container"
+            onMouseEnter={() => setIsZooming(true)}
+            onMouseLeave={() => setIsZooming(false)}
+            onMouseMove={handleMouseMoveZoom}
+            onClick={() => setSelectedImage(images[activeImgIndex] || images[0])}
+          >
+            <img 
+              src={images[activeImgIndex] || images[0]} 
+              alt={`${currentProduct.name}`} 
+              className="dossier-hero-main-img" 
+            />
+            
+            {/* Desktop Zoom Magnifier Overlay */}
+            {isZooming && (
+              <div 
+                className="zoom-lens-preview-layer"
+                style={{
+                  backgroundImage: `url(${images[activeImgIndex] || images[0]})`,
+                  backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`
+                }}
+              />
+            )}
+
+            <div className="zoom-indicator-pill">
+              <ZoomIn size={13} />
+              <span>{t('product_detail.zoom_hint', 'Hover to zoom • Click for full screen')}</span>
             </div>
-          ))}
+          </div>
+
+          {/* Thumbnail Carousel Bar */}
+          {images.length > 1 && (
+            <div className="gallery-thumbnail-strip">
+              {images.map((img, idx) => (
+                <div 
+                  key={idx}
+                  className={`thumbnail-box ${activeImgIndex === idx ? 'active' : ''}`}
+                  onClick={() => setActiveImgIndex(idx)}
+                >
+                  <img src={img} alt={`Angle ${idx + 1}`} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Right Side: Product Info */}
+        {/* Right Side: Product Info & Luxury Actions */}
         <div className="dossier-info">
           <button className="btn-back-link" onClick={onBack}>&larr; {t('product_detail.back')}</button>
 
@@ -521,8 +749,8 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
                 <Star 
                   key={i} 
                   size={14} 
-                  fill={i < Math.round(Number(displayedRating)) ? '#333' : 'none'} 
-                  stroke="#333" 
+                  fill={i < Math.round(Number(displayedRating)) ? '#D4AF37' : 'none'} 
+                  stroke="#D4AF37" 
                 />
               ))}
             </div>
@@ -531,8 +759,19 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
             </span>
           </div>
 
-          <div className="dossier-size">
-            {t('product_detail.premium')}. {t('product_detail.size')}: {size}
+          {/* Size Info & Interactive Size Guide Trigger */}
+          <div className="dossier-size-row">
+            <span className="dossier-size-text">
+              {t('product_detail.size')}: <strong>{size}</strong>
+            </span>
+            <button 
+              type="button" 
+              className="btn-size-guide-link"
+              onClick={() => setIsSizeGuideOpen(true)}
+            >
+              <Ruler size={14} />
+              <span>{t('product_detail.size_guide')}</span>
+            </button>
           </div>
 
           <div className="dossier-badges">
@@ -541,7 +780,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
             <span className="badge-pill">{t('product_detail.category')}: {categoryName}</span>
           </div>
 
-          {/* Low Stock Scarcity Progress Bar */}
+          {/* Low Stock Scarcity Urgency Progress Bar */}
           {currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock > 0 && currentProduct.stock <= 5 && (
             <div className="scarcity-urgency-banner animate-fade-in" style={{ margin: '1.2rem 0' }}>
               <div className="scarcity-urgency-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.85rem' }}>
@@ -562,23 +801,24 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
             </div>
           )}
 
-          {/* Stock Availability Indicator for normal & out of stock */}
+          {/* Stock Availability Indicator */}
           {(currentProduct.stock === undefined || currentProduct.stock === null || currentProduct.stock <= 0 || currentProduct.stock > 5) && (
-            <div className="stock-indicator-container" style={{ margin: '1rem 0' }}>
+            <div className="stock-indicator-container" style={{ margin: '1rem 0 0.5rem 0' }}>
               {currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? (
                 <div className="stock-status out-of-stock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.4rem 0.8rem', background: '#fee2e2', color: '#b91c1c', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#b91c1c' }}></span>
                   {t('product_card.out_of_stock', 'Out of Stock')}
                 </div>
               ) : (
-                <div className="stock-status in-stock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.4rem 0.8rem', background: '#ecfdf5', color: '#047857', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                  {t('product_card.in_stock', 'In Stock')} ({currentProduct.stock || 50} units available)
+                <div className="stock-status in-stock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.35rem 0.75rem', background: '#ecfdf5', color: '#047857', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '600' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }}></span>
+                  {t('product_card.in_stock', 'In Stock')} ({currentProduct.stock || 45} units available)
                 </div>
               )}
             </div>
           )}
 
+          {/* Primary Purchase Button */}
           <button 
             className={`dossier-add-btn ${currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? 'disabled' : ''}`} 
             onClick={() => addToCart(currentProduct)}
@@ -591,20 +831,114 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
             }
           </button>
 
-          {/* Social Proof & Delivery Trust Strip */}
-          <div className="product-trust-strip" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', margin: '1rem 0 1.5rem 0', padding: '0.85rem 1rem', background: '#fbf9f5', border: '1px solid #efe8dc', borderRadius: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#334155' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)' }}></span>
-              <span>{t('urgency.live_viewers', { count: ((currentProduct.id || 1) * 3 + 7) % 9 + 5 })}</span>
+          {/* 💎 HIGH CONVERTING BUNDLE SAVINGS UPSELL WIDGET */}
+          <div className="bundle-upsell-luxury-card animate-fade-in">
+            <div className="bundle-upsell-card-header">
+              <div className="bundle-upsell-title-row">
+                <Sparkles size={18} color="#b45309" />
+                <span className="bundle-upsell-title">{t('product_detail.bundle_upsell_title')}</span>
+              </div>
+              <span className="bundle-vip-badge">SAVE UP TO 25%</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#64748b' }}>
-              <Clock size={13} color="#b45309" />
-              <span>{t('urgency.free_delivery_hint')}</span>
+            
+            <p className="bundle-upsell-description">
+              {t('product_detail.bundle_upsell_desc')}
+            </p>
+
+            <div className="bundle-tiers-preview-grid">
+              <div className="bundle-tier-pill">
+                <span className="tier-num">2 Pieces</span>
+                <span className="tier-discount">-10% OFF</span>
+              </div>
+              <div className="bundle-tier-pill highlight">
+                <span className="tier-num">3 Pieces</span>
+                <span className="tier-discount">-15% OFF</span>
+              </div>
+              <div className="bundle-tier-pill vip">
+                <span className="tier-num">4+ Pieces</span>
+                <span className="tier-discount">-25% + Box</span>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              className="btn-add-to-bundle-upsell"
+              onClick={() => goToBundle ? goToBundle(currentProduct) : (window.location.href = '/bundle')}
+            >
+              <ShoppingBag size={16} />
+              <span>{t('product_detail.add_to_bundle')}</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+          {/* Morocco Express Delivery Live Countdown Banner */}
+          <div className="morocco-delivery-countdown-card">
+            <div className="delivery-card-top">
+              <div className="delivery-icon-title">
+                <Truck size={16} color="#047857" />
+                <span className="delivery-title">Express Delivery Morocco</span>
+              </div>
+              <div className="live-countdown-timer">
+                <Clock size={14} color="#b45309" />
+                <span className="timer-digits">{countdown.hours}h : {countdown.minutes}m : {countdown.seconds}s</span>
+              </div>
+            </div>
+            <div className="delivery-card-desc">
+              {t('product_detail.express_delivery_timer', { time: `${countdown.hours}h ${countdown.minutes}m` })}
             </div>
           </div>
 
-          {/* Details Card */}
-          <div className="scent-card">
+          {/* Luxury Gift & Velvet Box Option Toggle */}
+          <div className="gift-option-card">
+            <label className="gift-checkbox-label">
+              <input 
+                type="checkbox" 
+                checked={isGift} 
+                onChange={(e) => setIsGift(e.target.checked)} 
+              />
+              <div className="gift-label-content">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', color: '#1e293b' }}>
+                  <Gift size={16} color="#b45309" />
+                  <span>{t('product_detail.gift_toggle')}</span>
+                </div>
+              </div>
+            </label>
+
+            {isGift && (
+              <div className="gift-message-expand animate-fade-in">
+                <textarea 
+                  rows={3}
+                  placeholder={t('product_detail.gift_message_placeholder')}
+                  value={giftMessage}
+                  onChange={(e) => setGiftMessage(e.target.value)}
+                />
+                <div className="gift-perks-note">
+                  ✨ Includes magnetic luxury velvet presentation box and gold-embossed seal card.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Luxury Quality & Waterproof Guarantee Strip */}
+          <div className="luxury-guarantee-grid">
+            <div className="guarantee-item">
+              <Droplet size={18} color="#0284c7" />
+              <div>
+                <strong>{t('product_detail.waterproof_guarantee')}</strong>
+                <p>Never tarnishes in water, perfume or sweat.</p>
+              </div>
+            </div>
+            <div className="guarantee-item">
+              <ShieldCheck size={18} color="#059669" />
+              <div>
+                <strong>{t('product_detail.tarnish_warranty')}</strong>
+                <p>Premium 316L Stainless Steel & XP Gold alloy.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Details & Materials Accordion */}
+          <div className="scent-card" style={{ marginTop: '1.5rem' }}>
             <div className="scent-card-header" onClick={() => setIsNotesOpen(!isNotesOpen)} style={{cursor: 'pointer'}}>
               <span>{t('product_detail.materials_details')}</span>
               {isNotesOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -661,6 +995,49 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
               </div>
             )}
           </div>
+
+          {/* ✨ COMPLETE THE LOOK (Matching Jewelry Sets Cross-Sell) */}
+          {relatedProducts.length > 0 && (
+            <div className="complete-the-look-card animate-fade-in" style={{ marginTop: '2rem' }}>
+              <div className="complete-look-header">
+                <Sparkles size={18} color="#b45309" />
+                <h3>{t('product_detail.complete_the_look')}</h3>
+              </div>
+              <p className="complete-look-subtitle">{t('product_detail.matching_set')}</p>
+
+              <div className="complete-look-items-list">
+                {relatedProducts.map(relProd => (
+                  <div key={relProd.id} className="matching-item-row">
+                    <img 
+                      src={relProd.image || '/images/product_ring_1783185882264.png'} 
+                      alt={relProd.name} 
+                      className="matching-item-thumb"
+                      onClick={() => onProductClick ? onProductClick(relProd) : null}
+                    />
+                    <div className="matching-item-info">
+                      <div 
+                        className="matching-item-title"
+                        onClick={() => onProductClick ? onProductClick(relProd) : null}
+                      >
+                        {relProd.name}
+                      </div>
+                      <div className="matching-item-price">
+                        {formatCurrency(relProd.price, i18n.language)}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      className="btn-add-matching"
+                      onClick={() => handleAddMatchingSet(relProd)}
+                      title="Add matching piece to cart"
+                    >
+                      <Plus size={14} /> {t('product_detail.add_both')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
