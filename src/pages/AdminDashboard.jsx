@@ -5587,25 +5587,49 @@ const AdminDashboard = ({ currentUser }) => {
 
               <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f0f4f8', borderRadius: '8px', border: '1px solid #d9e2ec' }}>
                 <h4 style={{ marginBottom: '0.5rem', color: '#102a43', fontSize: '1rem' }}>Shipping Details</h4>
-                {selectedOrder.shipping_details ? (() => {
-                  try {
-                    const ship = JSON.parse(selectedOrder.shipping_details);
+                {(() => {
+                  let ship = {};
+                  if (selectedOrder.shipping_details) {
+                    try {
+                      ship = typeof selectedOrder.shipping_details === 'string'
+                        ? JSON.parse(selectedOrder.shipping_details)
+                        : selectedOrder.shipping_details;
+                    } catch(e) {
+                      ship = {};
+                    }
+                  }
+
+                  const custName = ship.firstName 
+                    ? `${ship.firstName} ${ship.lastName || ''}`.trim() 
+                    : (ship.fullName || ship.name || selectedOrder.user_name || 'Guest Customer');
+                  const custPhone = ship.phone || selectedOrder.customer_phone || selectedOrder.user_phone || 'N/A';
+                  const custEmail = ship.email || selectedOrder.user_email || 'N/A';
+                  const addressParts = [ship.address, ship.city, ship.zipCode].filter(Boolean);
+                  const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : (ship.address || 'Address not provided');
+
+                  if (!selectedOrder.shipping_details && !selectedOrder.user_name) {
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
-                        <div><strong>Name:</strong> {ship.firstName} {ship.lastName}</div>
-                        <div><strong>Phone:</strong> {ship.phone}</div>
-                        <div><strong>Email:</strong> {ship.email}</div>
-                        <div style={{ gridColumn: '1 / -1' }}><strong>Address:</strong> {ship.address}, {ship.city}, {ship.zipCode}</div>
+                      <div style={{ fontSize: '0.9rem', color: '#829ab1', fontStyle: 'italic' }}>
+                        Shipping details not captured (Old Order). New orders will display full address and phone number here.
                       </div>
                     );
-                  } catch(e) { 
-                    return <div style={{ fontSize: '0.9rem', color: '#666' }}>Error loading shipping details.</div>; 
                   }
-                })() : (
-                  <div style={{ fontSize: '0.9rem', color: '#829ab1', fontStyle: 'italic' }}>
-                    Shipping details not captured (Old Order). New orders will display full address and phone number here.
-                  </div>
-                )}
+
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', fontSize: '0.9rem' }}>
+                      <div><strong>Name:</strong> {custName}</div>
+                      <div><strong>Phone:</strong> {custPhone}</div>
+                      <div><strong>Email:</strong> {custEmail}</div>
+                      <div><strong>City:</strong> {ship.city || 'N/A'}</div>
+                      <div style={{ gridColumn: '1 / -1' }}><strong>Delivery Address:</strong> {fullAddress}</div>
+                      {ship.note && (
+                        <div style={{ gridColumn: '1 / -1', background: '#fff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>
+                          <strong>Customer Note:</strong> {ship.note}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               
               <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -5639,14 +5663,12 @@ const AdminDashboard = ({ currentUser }) => {
                     <tr key={item.id}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <img src={item.product_image} alt={item.product_name} className="admin-prod-img" style={{ width: '34px', height: '34px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                          <img src={item.product_image} alt={item.product_name} className="admin-prod-img" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
                           <div>
                             <div style={{ fontWeight: '600', color: '#1e293b' }}>{item.product_name}</div>
-                            {item.size && item.size !== 'Standard' && (
-                              <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '700', display: 'inline-block', marginTop: '2px' }}>
-                                Size: {item.size}
-                              </span>
-                            )}
+                            <span style={{ fontSize: '0.78rem', background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '6px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '3px', border: '1px solid #fde68a' }}>
+                              📏 Size: {item.size || item.selectedSize || 'Standard'}
+                            </span>
                           </div>
                         </div>
                       </td>
