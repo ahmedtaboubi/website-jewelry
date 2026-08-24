@@ -515,14 +515,16 @@ app.post('/api/orders', async (req, res) => {
 
     if (Array.isArray(items) && items.length > 0) {
       for (const item of items) {
+        const itemSize = item.size || item.selectedSize || 'Standard';
         await turso.execute({
-          sql: `INSERT INTO order_items (order_id, product_name, product_image, quantity, price) VALUES (?, ?, ?, ?, ?)`,
+          sql: `INSERT INTO order_items (order_id, product_name, product_image, quantity, price, size) VALUES (?, ?, ?, ?, ?, ?)`,
           args: [
             orderId, 
             item.name || 'Jewelry Item', 
             item.image || '', 
             parseInt(item.quantity, 10) || 1, 
-            parseFloat(item.price) || 0
+            parseFloat(item.price) || 0,
+            itemSize
           ]
         });
 
@@ -551,7 +553,7 @@ app.post('/api/orders', async (req, res) => {
         const customerEmail = shipObj.email || 'N/A';
         const customerPhone = shipObj.phone || 'N/A';
         const itemsList = Array.isArray(items) 
-          ? items.map(item => `- ${item.quantity || 1}x ${item.name || 'Jewelry Piece'}`).join('\n')
+          ? items.map(item => `- ${item.quantity || 1}x ${item.name || 'Jewelry Piece'} (Size: ${item.size || item.selectedSize || 'Standard'})`).join('\n')
           : 'N/A';
 
         const discordMessage = {

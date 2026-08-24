@@ -5638,9 +5638,16 @@ const AdminDashboard = ({ currentUser }) => {
                   {selectedOrder.items?.map(item => (
                     <tr key={item.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <img src={item.product_image} alt={item.product_name} className="admin-prod-img" style={{ width: '30px', height: '30px' }} />
-                          <span>{item.product_name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <img src={item.product_image} alt={item.product_name} className="admin-prod-img" style={{ width: '34px', height: '34px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                          <div>
+                            <div style={{ fontWeight: '600', color: '#1e293b' }}>{item.product_name}</div>
+                            {item.size && item.size !== 'Standard' && (
+                              <span style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '700', display: 'inline-block', marginTop: '2px' }}>
+                                Size: {item.size}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>{item.price.toFixed(2)} DH</td>
