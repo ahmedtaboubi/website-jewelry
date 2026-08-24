@@ -129,13 +129,18 @@ const ProductDetail = ({ product, onBack, addToCart, showToast }) => {
 
   const handleHelpfulClick = async (reviewId) => {
     if (helpfulVoted[reviewId]) return;
+    // Optimistic UI increment
+    setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: (Number(r.helpful_count) || 0) + 1 } : r));
+    setHelpfulVoted(prev => ({ ...prev, [reviewId]: true }));
+    if (showToast) showToast(t('reviews.helpful') + ' +1');
+
     try {
       const res = await fetch(`/api/reviews/${reviewId}/helpful`, { method: 'POST' });
       if (res.ok) {
         const updated = await res.json();
-        setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: updated.helpful_count } : r));
-        setHelpfulVoted(prev => ({ ...prev, [reviewId]: true }));
-        if (showToast) showToast(t('reviews.helpful') + ' +1');
+        if (typeof updated?.helpful_count === 'number') {
+          setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: updated.helpful_count } : r));
+        }
       }
     } catch (e) {
       console.error('Helpful vote error:', e);

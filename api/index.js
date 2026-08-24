@@ -768,7 +768,12 @@ app.post('/api/reviews/:id/helpful', async (req, res) => {
       sql: 'UPDATE reviews SET helpful_count = COALESCE(helpful_count, 0) + 1 WHERE id = ?',
       args: [req.params.id]
     });
-    res.json({ message: 'Review marked as helpful' });
+    const reviewRes = await turso.execute({
+      sql: 'SELECT COALESCE(helpful_count, 0) as helpful_count FROM reviews WHERE id = ?',
+      args: [req.params.id]
+    });
+    const helpful_count = reviewRes.rows.length > 0 ? Number(reviewRes.rows[0].helpful_count) : 1;
+    res.json({ success: true, message: 'Review marked as helpful', helpful_count });
   } catch (error) {
     console.error('Helpful vote error:', error);
     res.status(500).json({ error: 'Failed to record helpful vote' });
