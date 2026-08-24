@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
-  ChevronDown, ChevronUp, Leaf, Droplet, Star, CheckCircle, ThumbsUp, 
+  ChevronDown, ChevronUp, Leaf, Droplet, Star, Check, CheckCircle, ThumbsUp, 
   MessageSquare, Plus, X, ShieldCheck, Camera, Image as ImageIcon, Trash2,
   Flame, Clock, ZoomIn, Ruler, Gift, Sparkles, ShoppingBag, ArrowRight,
   Truck
