@@ -43,29 +43,37 @@ const Cart = ({ isOpen, onClose, cartItems, updateQuantity, removeFromCart, tota
               <p>{t('cart.empty')}</p>
             </div>
           ) : (
-            cartItems.map((item) => (
-              <div key={item.id} className="cart-item">
-                <img src={item.image} alt={item.name} className="cart-item-img" />
-                <div className="cart-item-details">
-                  <h4>{item.name}</h4>
-                  <p className="cart-item-price">{formatCurrency(item.priceStr || item.price, i18n.language)}</p>
-                  <div className="cart-item-actions">
-                    <div className="quantity-controls">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>
-                        <Minus size={14} />
-                      </button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>
-                        <Plus size={14} />
+            cartItems.map((item) => {
+              const itemKey = item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`;
+              return (
+                <div key={itemKey} className="cart-item">
+                  <img src={item.image} alt={item.name} className="cart-item-img" />
+                  <div className="cart-item-details">
+                    <h4>{item.name}</h4>
+                    {item.selectedSize && (
+                      <div style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: '700', margin: '2px 0 4px 0', display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fef3c7', padding: '1px 6px', borderRadius: '4px' }}>
+                        <span>Taille / Size: {item.selectedSize}</span>
+                      </div>
+                    )}
+                    <p className="cart-item-price">{formatCurrency(item.priceStr || item.price, i18n.language)}</p>
+                    <div className="cart-item-actions">
+                      <div className="quantity-controls">
+                        <button onClick={() => updateQuantity(itemKey, item.quantity - 1)}>
+                          <Minus size={14} />
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button onClick={() => updateQuantity(itemKey, item.quantity + 1)}>
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                      <button className="remove-btn" onClick={() => removeFromCart(itemKey)}>
+                        Remove
                       </button>
                     </div>
-                    <button className="remove-btn" onClick={() => removeFromCart(item.id)}>
-                      Remove
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         

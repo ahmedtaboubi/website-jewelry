@@ -329,6 +329,29 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
   const size = details.size || "Adjustable";
   const categoryName = details.scentFamily || currentProduct.category || "Rings";
   const styleDescription = details.scentDescription || "Elegant, handcrafted design";
+
+  const getCategorySizes = (cat) => {
+    const c = (cat || '').toLowerCase();
+    if (c.includes('ring') || c.includes('bague') || c.includes('خاتم')) {
+      return ['50 (US 5)', '52 (US 6)', '54 (US 7)', '56 (US 7.5)', '58 (US 8.5)', 'Adjustable'];
+    }
+    if (c.includes('necklace') || c.includes('collier') || c.includes('قلادة') || c.includes('choker') || c.includes('chain')) {
+      return ['40 cm (16")', '45 cm (18")', '50 cm (20")', '60 cm (24")'];
+    }
+    if (c.includes('bracelet') || c.includes('سوار') || c.includes('gourmette')) {
+      return ['Small (16cm + 3cm)', 'Medium (17.5cm + 3cm)', 'Large (19cm + 3cm)'];
+    }
+    return ['Standard (One Size)'];
+  };
+
+  const availableSizes = getCategorySizes(categoryName);
+  const [selectedSize, setSelectedSize] = useState(() => availableSizes[2] || availableSizes[0] || 'Standard');
+
+  useEffect(() => {
+    if (availableSizes && availableSizes.length > 0) {
+      setSelectedSize(availableSizes[2] || availableSizes[0]);
+    }
+  }, [categoryName]);
   
   const getEmojiForNote = (materialName) => {
     if (!materialName) return '✨';
@@ -759,19 +782,36 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
             </span>
           </div>
 
-          {/* Size Info & Interactive Size Guide Trigger */}
-          <div className="dossier-size-row">
-            <span className="dossier-size-text">
-              {t('product_detail.size')}: <strong>{size}</strong>
-            </span>
-            <button 
-              type="button" 
-              className="btn-size-guide-link"
-              onClick={() => setIsSizeGuideOpen(true)}
-            >
-              <Ruler size={14} />
-              <span>{t('product_detail.size_guide')}</span>
-            </button>
+          {/* Size Info & Interactive Size Selector with Guide */}
+          <div className="product-size-selector-container">
+            <div className="size-selector-header">
+              <div className="size-selector-label">
+                <span>{t('product_detail.select_size', 'Select Size')}:</span>
+                <strong className="current-selected-size-text">{selectedSize}</strong>
+              </div>
+              <button 
+                type="button" 
+                className="btn-size-guide-link"
+                onClick={() => setIsSizeGuideOpen(true)}
+              >
+                <Ruler size={14} />
+                <span>{t('product_detail.size_guide')}</span>
+              </button>
+            </div>
+
+            <div className="size-pills-selector-grid">
+              {availableSizes.map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  className={`size-selector-pill ${selectedSize === sz ? 'active' : ''}`}
+                  onClick={() => setSelectedSize(sz)}
+                >
+                  <span>{sz}</span>
+                  {selectedSize === sz && <Check size={12} className="size-pill-check" />}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="dossier-badges">
@@ -821,7 +861,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
           {/* Primary Purchase Button */}
           <button 
             className={`dossier-add-btn ${currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? 'disabled' : ''}`} 
-            onClick={() => addToCart(currentProduct)}
+            onClick={() => addToCart(currentProduct, selectedSize)}
             disabled={currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0}
             style={currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? { opacity: 0.6, cursor: 'not-allowed', background: '#94a3b8' } : {}}
           >
@@ -863,7 +903,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
             <button 
               type="button"
               className="btn-add-to-bundle-upsell"
-              onClick={() => goToBundle ? goToBundle(currentProduct) : (window.location.href = '/bundle')}
+              onClick={() => goToBundle ? goToBundle({ ...currentProduct, selectedSize }) : (window.location.href = '/bundle')}
             >
               <ShoppingBag size={16} />
               <span>{t('product_detail.add_to_bundle')}</span>

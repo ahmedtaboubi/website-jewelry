@@ -241,7 +241,7 @@ function App() {
     setToast(prev => ({ ...prev, isVisible: false }));
   };
 
-  const addToCart = (product) => {
+  const addToCart = (product, customSize = null) => {
     try {
       const isOutOfStock = product.stock !== undefined && product.stock !== null && product.stock <= 0;
       if (isOutOfStock) {
@@ -249,22 +249,25 @@ function App() {
         return;
       }
 
+      const sizeToUse = customSize || product.selectedSize || 'Standard';
+      const cartKey = `${product.id}_${sizeToUse}`;
+
       let newCart;
-      const existing = cartItems.find(item => item.id === product.id);
+      const existing = cartItems.find(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey);
       if (existing) {
         if (product.stock !== undefined && product.stock !== null && existing.quantity >= product.stock) {
           showToast(`Maximum available stock reached (${product.stock} units for ${product.name}).`);
           return;
         }
-        newCart = cartItems.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        newCart = cartItems.map(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey ? { ...item, quantity: item.quantity + 1 } : item);
       } else {
         const priceStr = product.priceStr || product.price || "0.00";
-        newCart = [...cartItems, { ...product, priceStr, quantity: 1 }];
+        newCart = [...cartItems, { ...product, cartKey, selectedSize: sizeToUse, priceStr, quantity: 1 }];
       }
       
       setCartItems(newCart);
       setIsCartOpen(true);
-      showToast(`${product.name} has been added to your cart!`);
+      showToast(i18n.language === 'ar' ? `✨ تمت إضافة ${product.name} (${sizeToUse}) إلى السلة!` : (i18n.language === 'fr' ? `✨ ${product.name} (Taille : ${sizeToUse}) ajouté au panier !` : `✨ Added ${product.name} (Size: ${sizeToUse}) to cart!`));
     } catch (e) {
       alert("Error: " + e.message);
     }
@@ -282,16 +285,19 @@ function App() {
           return;
         }
 
-        const existing = newCart.find(item => item.id === product.id);
+        const sizeToUse = product.selectedSize || 'Standard';
+        const cartKey = `${product.id}_${sizeToUse}`;
+
+        const existing = newCart.find(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey);
         if (existing) {
           if (product.stock !== undefined && product.stock !== null && existing.quantity >= product.stock) {
             skippedCount++;
             return;
           }
-          newCart = newCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+          newCart = newCart.map(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey ? { ...item, quantity: item.quantity + 1 } : item);
         } else {
           const priceStr = product.priceStr || product.price || "0.00";
-          newCart.push({ ...product, priceStr, quantity: 1 });
+          newCart.push({ ...product, cartKey, selectedSize: sizeToUse, priceStr, quantity: 1 });
         }
       });
 
@@ -307,21 +313,21 @@ function App() {
     }
   };
 
-  const removeFromCart = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const removeFromCart = (idOrKey) => {
+    setCartItems(prev => prev.filter(item => (item.cartKey || item.id) !== idOrKey && item.id !== idOrKey));
   };
 
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = (idOrKey, newQuantity) => {
     if (newQuantity < 1) {
-      removeFromCart(id);
+      removeFromCart(idOrKey);
       return;
     }
-    const item = cartItems.find(i => i.id === id);
+    const item = cartItems.find(i => (i.cartKey || i.id) === idOrKey || i.id === idOrKey);
     if (item && item.stock !== undefined && item.stock !== null && newQuantity > item.stock) {
       showToast(`Only ${item.stock} unit(s) available in stock.`);
       return;
     }
-    setCartItems(prev => prev.map(item => item.id === id ? { ...item, quantity: newQuantity } : item));
+    setCartItems(prev => prev.map(item => ((item.cartKey || item.id) === idOrKey || item.id === idOrKey) ? { ...item, quantity: newQuantity } : item));
   };
 
   const clearCart = () => {
@@ -352,6 +358,7 @@ function App() {
             id: item.id,
             name: item.name,
             image: item.image,
+            size: item.selectedSize || 'Standard',
             quantity: item.quantity,
             price: parsePrice(item.priceStr || item.price)
           }))

@@ -1120,14 +1120,71 @@
   object-fit: cover;
 }
 
-/* Size Row & Guide Button */
-.dossier-size-row {
+/* Size Row & Interactive Selector */
+.product-size-selector-container {
+  margin: 1rem 0 0.8rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.size-selector-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0.6rem 0 0.8rem 0;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+}
+
+.size-selector-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+}
+
+.current-selected-size-text {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.size-pills-selector-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.size-selector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 0.85rem;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #334155;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.size-selector-pill:hover {
+  border-color: #D4AF37;
+  color: #0f172a;
+  background: #fffdf9;
+  transform: translateY(-1px);
+}
+
+.size-selector-pill.active {
+  border-color: #D4AF37;
+  background: #fffdf5;
+  color: #78350f;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.35);
+}
+
+.size-pill-check {
+  color: #b45309;
 }
 
 .btn-size-guide-link {
