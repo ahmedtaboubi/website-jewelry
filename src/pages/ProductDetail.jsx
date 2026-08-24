@@ -28,6 +28,33 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
   const [isGift, setIsGift] = useState(false);
   const [giftMessage, setGiftMessage] = useState('');
 
+  // Sizing Options
+  const getCategorySizes = (cat) => {
+    const c = (cat || '').toLowerCase();
+    if (c.includes('ring') || c.includes('bague') || c.includes('خاتم')) {
+      return ['50 (US 5)', '52 (US 6)', '54 (US 7)', '56 (US 7.5)', '58 (US 8.5)', '60 (US 9)'];
+    }
+    if (c.includes('necklace') || c.includes('collier') || c.includes('قلادة') || c.includes('choker') || c.includes('chain')) {
+      return ['40 cm (16")', '45 cm (18")', '50 cm (20")', '60 cm (24")'];
+    }
+    if (c.includes('bracelet') || c.includes('سوار') || c.includes('gourmette')) {
+      return ['Small (16cm + 3cm)', 'Medium (17.5cm + 3cm)', 'Large (19cm + 3cm)'];
+    }
+    return ['Standard (One Size)'];
+  };
+
+  const initialCat = currentProduct?.category || product?.category || 'Rings';
+  const availableSizes = getCategorySizes(initialCat);
+  const [selectedSize, setSelectedSize] = useState(() => availableSizes[2] || availableSizes[0] || 'Standard');
+
+  useEffect(() => {
+    const cat = currentProduct?.category || product?.category || 'Rings';
+    const sizes = getCategorySizes(cat);
+    if (sizes && sizes.length > 0) {
+      setSelectedSize(sizes[2] || sizes[0]);
+    }
+  }, [currentProduct?.category, product?.category]);
+
   // Related Products ("Complete the Look")
   const [relatedProducts, setRelatedProducts] = useState([]);
 
@@ -330,29 +357,6 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
   const categoryName = details.scentFamily || currentProduct.category || "Rings";
   const styleDescription = details.scentDescription || "Elegant, handcrafted design";
 
-  const getCategorySizes = (cat) => {
-    const c = (cat || '').toLowerCase();
-    if (c.includes('ring') || c.includes('bague') || c.includes('خاتم')) {
-      return ['50 (US 5)', '52 (US 6)', '54 (US 7)', '56 (US 7.5)', '58 (US 8.5)', '60 (US 9)'];
-    }
-    if (c.includes('necklace') || c.includes('collier') || c.includes('قلادة') || c.includes('choker') || c.includes('chain')) {
-      return ['40 cm (16")', '45 cm (18")', '50 cm (20")', '60 cm (24")'];
-    }
-    if (c.includes('bracelet') || c.includes('سوار') || c.includes('gourmette')) {
-      return ['Small (16cm + 3cm)', 'Medium (17.5cm + 3cm)', 'Large (19cm + 3cm)'];
-    }
-    return ['Standard (One Size)'];
-  };
-
-  const availableSizes = getCategorySizes(categoryName);
-  const [selectedSize, setSelectedSize] = useState(() => availableSizes[2] || availableSizes[0] || 'Standard');
-
-  useEffect(() => {
-    if (availableSizes && availableSizes.length > 0) {
-      setSelectedSize(availableSizes[2] || availableSizes[0]);
-    }
-  }, [categoryName]);
-  
   const getEmojiForNote = (materialName) => {
     if (!materialName) return '✨';
     const m = materialName.toLowerCase();
