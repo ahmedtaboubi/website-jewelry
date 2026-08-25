@@ -552,12 +552,20 @@ app.post('/api/orders', async (req, res) => {
         const customerName = `${shipObj.firstName || ''} ${shipObj.lastName || ''}`.trim() || 'Guest Customer';
         const customerEmail = shipObj.email || 'N/A';
         const customerPhone = shipObj.phone || 'N/A';
+        const customNote = shipObj.note || shipObj.giftMessage || shipObj.customMessage || '';
+        const isGiftOrder = shipObj.isGift || Boolean(customNote);
+
         const itemsList = Array.isArray(items) 
           ? items.map(item => `- ${item.quantity || 1}x ${item.name || 'Jewelry Piece'} (Size: ${item.size || item.selectedSize || 'Standard'})`).join('\n')
           : 'N/A';
 
+        let giftSection = '';
+        if (isGiftOrder || customNote) {
+          giftSection = `\n🎁 **GIFT PACKAGING & MESSAGE:**\n${customNote ? `> "${customNote}"` : 'Customer requested complimentary velvet presentation box & gold embossed card.'}\n`;
+        }
+
         const discordMessage = {
-          content: `🚨 **NEW ORDER RECEIVED** 🚨\n**Order ID:** #${orderId}\n**Customer:** ${customerName} (${customerEmail})\n**Phone:** ${customerPhone}\n**Total:** ${finalTotal.toFixed(2)} DH\n**Items:**\n${itemsList}`
+          content: `🚨 **NEW ORDER RECEIVED** 🚨\n**Order ID:** #${orderId}\n**Customer:** ${customerName} (${customerEmail})\n**Phone:** ${customerPhone}\n**Delivery Address:** ${shipObj.address || 'N/A'}, ${shipObj.city || ''}${giftSection}\n**Total:** ${finalTotal.toFixed(2)} DH\n**Items:**\n${itemsList}`
         };
 
         fetch(discordWebhookUrl, {

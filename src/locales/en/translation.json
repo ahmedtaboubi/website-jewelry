@@ -142,7 +142,9 @@
     "processing": "Processing...",
     "order_success": "Order Placed Successfully!",
     "order_success_desc": "Thank you for your purchase. You will receive an email confirmation shortly.",
-    "continue_shopping": "Continue Shopping"
+    "continue_shopping": "Continue Shopping",
+    "gift_or_order_notes": "Custom Gift Message & Delivery Notes",
+    "gift_notes_placeholder": "Add a personalized message for an embossed gift card, or special delivery instructions..."
   },
   "product_detail": {
     "back": "Back to Shop",

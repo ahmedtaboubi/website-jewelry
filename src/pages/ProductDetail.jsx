@@ -865,7 +865,7 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
           {/* Primary Purchase Button */}
           <button 
             className={`dossier-add-btn ${currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? 'disabled' : ''}`} 
-            onClick={() => addToCart(currentProduct, selectedSize)}
+            onClick={() => addToCart(currentProduct, selectedSize, { isGift, giftMessage })}
             disabled={currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0}
             style={currentProduct.stock !== undefined && currentProduct.stock !== null && currentProduct.stock <= 0 ? { opacity: 0.6, cursor: 'not-allowed', background: '#94a3b8' } : {}}
           >

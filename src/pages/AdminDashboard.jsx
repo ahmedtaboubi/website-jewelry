@@ -3844,7 +3844,14 @@ const AdminDashboard = ({ currentUser }) => {
                       <tr key={order.id}>
                         <td>#{order.id}</td>
                         <td>
-                          <div style={{ fontWeight: '600' }}>{order.user_name || 'Guest Customer'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: '600' }}>{order.user_name || 'Guest Customer'}</span>
+                            {(order.shipping_details?.isGift || order.shipping_details?.note || order.shipping_details?.giftMessage || order.items?.some(i => i.isGift || i.giftMessage)) && (
+                              <span style={{ fontSize: '0.7rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: '700', border: '1px solid #fde68a' }}>
+                                🎁 Gift
+                              </span>
+                            )}
+                          </div>
                           <div className="text-small text-light">{order.user_email || order.customer_phone || 'No email provided'}</div>
                         </td>
                         <td>
@@ -5606,6 +5613,9 @@ const AdminDashboard = ({ currentUser }) => {
                   const custEmail = ship.email || selectedOrder.user_email || 'N/A';
                   const addressParts = [ship.address, ship.city, ship.zipCode].filter(Boolean);
                   const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : (ship.address || 'Address not provided');
+                  
+                  const customGiftMsg = (ship.note || ship.giftMessage || ship.customMessage || selectedOrder.items?.find(it => it.giftMessage || it.gift_message)?.giftMessage || '').trim();
+                  const isGift = Boolean(ship.isGift || customGiftMsg || selectedOrder.items?.some(it => it.isGift || it.is_gift));
 
                   if (!selectedOrder.shipping_details && !selectedOrder.user_name) {
                     return (
@@ -5622,9 +5632,21 @@ const AdminDashboard = ({ currentUser }) => {
                       <div><strong>Email:</strong> {custEmail}</div>
                       <div><strong>City:</strong> {ship.city || 'N/A'}</div>
                       <div style={{ gridColumn: '1 / -1' }}><strong>Delivery Address:</strong> {fullAddress}</div>
-                      {ship.note && (
-                        <div style={{ gridColumn: '1 / -1', background: '#fff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>
-                          <strong>Customer Note:</strong> {ship.note}
+                      
+                      {/* Luxury Gift Card & Custom Note Box */}
+                      {(isGift || customGiftMsg) && (
+                        <div style={{ gridColumn: '1 / -1', background: '#fffbeb', padding: '12px 16px', borderRadius: '8px', border: '1.5px solid #fde68a', marginTop: '0.4rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#b45309', fontSize: '0.95rem' }}>
+                            <span>🎁</span>
+                            <span>GIFT ORDER — EMBOSSED CARD & VELVET BOX</span>
+                          </div>
+                          {customGiftMsg ? (
+                            <div style={{ marginTop: '0.5rem', background: '#fff', padding: '10px 14px', borderRadius: '6px', border: '1px solid #fcd34d', color: '#1e293b', fontStyle: 'italic', fontSize: '0.92rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                              "{customGiftMsg}"
+                            </div>
+                          ) : (
+                            <p style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: '#92400e' }}>Customer requested complimentary velvet gift box & blank embossed card.</p>
+                          )}
                         </div>
                       )}
                     </div>

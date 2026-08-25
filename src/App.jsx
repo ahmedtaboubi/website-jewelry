@@ -241,7 +241,7 @@ function App() {
     setToast(prev => ({ ...prev, isVisible: false }));
   };
 
-  const addToCart = (product, customSize = null) => {
+  const addToCart = (product, customSize = null, giftOptions = null) => {
     try {
       const isOutOfStock = product.stock !== undefined && product.stock !== null && product.stock <= 0;
       if (isOutOfStock) {
@@ -250,7 +250,9 @@ function App() {
       }
 
       const sizeToUse = customSize || product.selectedSize || 'Standard';
-      const cartKey = `${product.id}_${sizeToUse}`;
+      const isGift = Boolean(giftOptions?.isGift || product.isGift);
+      const giftMessage = giftOptions?.giftMessage || product.giftMessage || '';
+      const cartKey = `${product.id}_${sizeToUse}_${giftMessage ? 'gift' : 'std'}`;
 
       let newCart;
       const existing = cartItems.find(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey);
@@ -262,7 +264,15 @@ function App() {
         newCart = cartItems.map(item => (item.cartKey || `${item.id}_${item.selectedSize || 'Standard'}`) === cartKey ? { ...item, quantity: item.quantity + 1 } : item);
       } else {
         const priceStr = product.priceStr || product.price || "0.00";
-        newCart = [...cartItems, { ...product, cartKey, selectedSize: sizeToUse, priceStr, quantity: 1 }];
+        newCart = [...cartItems, { 
+          ...product, 
+          cartKey, 
+          selectedSize: sizeToUse, 
+          priceStr, 
+          quantity: 1,
+          isGift,
+          giftMessage
+        }];
       }
       
       setCartItems(newCart);
@@ -340,6 +350,23 @@ function App() {
     
     try {
       const token = currentUser ? localStorage.getItem('authToken') : null;
+
+      // Consolidate gift messages from cart items if not explicitly provided in shipping form
+      const itemGiftMessages = cartItems
+        .filter(item => item.giftMessage && item.giftMessage.trim())
+        .map(item => `${item.name}: "${item.giftMessage.trim()}"`)
+        .join('\n');
+
+      const customGiftNote = (shippingDetails.note || shippingDetails.giftMessage || itemGiftMessages || '').trim();
+      const isGiftOrder = Boolean(shippingDetails.isGift || cartItems.some(i => i.isGift) || customGiftNote);
+
+      const enrichedShippingDetails = {
+        ...shippingDetails,
+        note: customGiftNote,
+        giftMessage: customGiftNote,
+        isGift: isGiftOrder
+      };
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 
@@ -353,14 +380,16 @@ function App() {
           discountPercent: discountPercent,
           discountAmount: discountAmount,
           shippingCost: shippingCost,
-          shippingDetails: shippingDetails,
+          shippingDetails: enrichedShippingDetails,
           items: cartItems.map(item => ({
             id: item.id,
             name: item.name,
             image: item.image,
             size: item.selectedSize || 'Standard',
             quantity: item.quantity,
-            price: parsePrice(item.priceStr || item.price)
+            price: parsePrice(item.priceStr || item.price),
+            isGift: item.isGift || false,
+            giftMessage: item.giftMessage || ''
           }))
         })
       });

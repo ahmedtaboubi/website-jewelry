@@ -140,9 +140,11 @@
     "total": "Total",
     "place_order": "Confirmer la Commande",
     "processing": "Traitement en cours...",
-    "order_success": "Commande validée avec succès !",
-    "order_success_desc": "Merci pour votre achat. Vous recevrez un e-mail de confirmation sous peu.",
-    "continue_shopping": "Continuer vos achats"
+    "order_success": "Commande Validée avec Succès !",
+    "order_success_desc": "Merci pour votre achat. Vous recevrez une confirmation très prochainement.",
+    "continue_shopping": "Continuer vos Achats",
+    "gift_or_order_notes": "Message Personnalisé pour Cadeau & Instructions de Livraison",
+    "gift_notes_placeholder": "Rédigez votre mot d'accompagnement pour la carte dorée, ou des instructions pour le livreur..."
   },
   "product_detail": {
     "back": "Retour à la boutique",

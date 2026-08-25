@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle, ShieldCheck, Truck, RotateCcw, ChevronDown, ChevronUp, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ShieldCheck, Truck, RotateCcw, ChevronDown, ChevronUp, ShoppingBag, Gift } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/currency';
 import './Checkout.css';
@@ -7,6 +7,13 @@ import './Checkout.css';
 const Checkout = ({ cartItems, cartSubtotal, discountPercent, discountAmount, shippingCost, cartTotal, onPlaceOrder, onBack, currentUser }) => {
   const { t, i18n } = useTranslation();
   const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
+  
+  // Extract any gift messages attached to cart items
+  const initialGiftMsg = cartItems
+    ?.map(item => item.giftMessage)
+    ?.filter(Boolean)
+    ?.join('\n') || '';
+
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -15,6 +22,7 @@ const Checkout = ({ cartItems, cartSubtotal, discountPercent, discountAmount, sh
     city: '',
     zipCode: '',
     phone: '',
+    note: initialGiftMsg,
     cardNumber: '',
     expiry: '',
     cvv: ''
@@ -199,10 +207,32 @@ const Checkout = ({ cartItems, cartSubtotal, discountPercent, discountAmount, sh
                 </div>
               </div>
 
+              {/* Custom Gift Message & Delivery Notes */}
+              <div className="form-card">
+                <h3 className="form-section-title">
+                  <span className="step-num">3</span> {t('checkout.gift_or_order_notes')}
+                </h3>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <textarea 
+                    name="note" 
+                    rows={3} 
+                    placeholder={t('checkout.gift_notes_placeholder')} 
+                    className="form-input" 
+                    style={{ resize: 'vertical', minHeight: '80px', fontFamily: 'inherit', lineHeight: '1.5' }} 
+                    value={formData.note} 
+                    onChange={handleChange} 
+                  />
+                  <div style={{ fontSize: '0.78rem', color: '#b45309', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Gift size={14} color="#b45309" />
+                    <span>Complimentary velvet presentation box & gold seal embossed card included for all gift notes.</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Payment Method */}
               <div className="form-card">
                 <h3 className="form-section-title">
-                  <span className="step-num">3</span> {t('checkout.payment_method')}
+                  <span className="step-num">4</span> {t('checkout.payment_method')}
                 </h3>
                 <div className="payment-method-box active">
                   <div className="payment-radio-circle">
