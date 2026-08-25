@@ -752,7 +752,7 @@ app.post('/api/reviews', async (req, res) => {
 
     const result = await turso.execute({
       sql: `INSERT INTO reviews (product_id, author, author_name, author_email, rating, title, comment, status, verified_purchase, helpful_count, images, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 1, 0, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 1, 0, ?, ?)`,
       args: [productId, name, name, email, rRating, rTitle, rComment, imgString, userId || null]
     });
 
