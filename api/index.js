@@ -1397,7 +1397,7 @@ app.delete('/api/ingredients/:id', async (req, res) => {
 });
 
 // 19. Marketing & Tracking Pixels Settings
-app.get('/api/settings/pixels', async (req, res) => {
+app.get(['/api/settings/pixels', '/settings/pixels'], async (req, res) => {
   try {
     const result = await turso.execute("SELECT value FROM store_settings WHERE key = 'pixels_config'");
     if (result.rows.length === 0) {
@@ -1431,7 +1431,7 @@ app.get('/api/settings/pixels', async (req, res) => {
   }
 });
 
-app.put('/api/admin/settings/pixels', async (req, res) => {
+app.put(['/api/admin/settings/pixels', '/admin/settings/pixels'], async (req, res) => {
   try {
     const newConfig = req.body || {};
     const configStr = JSON.stringify(newConfig);
