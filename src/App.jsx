@@ -16,6 +16,7 @@ import PromoPopup from './components/PromoPopup';
 import AuthModal from './components/AuthModal';
 import SocialProofToast from './components/SocialProofToast';
 import { parsePrice } from './utils/currency';
+import { pixelTracker } from './utils/pixelTracker';
 
 function App() {
   const { i18n } = useTranslation();
@@ -24,10 +25,27 @@ function App() {
     document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
   }, [i18n.language]);
 
+  // Load and initialize active marketing pixels (Meta, TikTok, GA4, Snapchat)
+  useEffect(() => {
+    fetch('/api/settings/pixels')
+      .then(res => res.ok ? res.json() : null)
+      .then(config => {
+        if (config) {
+          pixelTracker.init(config);
+        }
+      })
+      .catch(err => console.error('[App] Failed to load pixel settings:', err));
+  }, []);
+
   const [currentPage, setCurrentPage] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeShopFilter, setActiveShopFilter] = useState('');
+
+  // Track page view on route changes
+  useEffect(() => {
+    pixelTracker.trackPageView(`Aura - ${currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}`);
+  }, [currentPage]);
   
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -277,6 +295,10 @@ function App() {
       
       setCartItems(newCart);
       setIsCartOpen(true);
+      
+      // Multi-Pixel Event: Add to Cart
+      pixelTracker.trackAddToCart(product, sizeToUse, 1);
+
       showToast(i18n.language === 'ar' ? `✨ تمت إضافة ${product.name} (${sizeToUse}) إلى السلة!` : (i18n.language === 'fr' ? `✨ ${product.name} (Taille : ${sizeToUse}) ajouté au panier !` : `✨ Added ${product.name} (Size: ${sizeToUse}) to cart!`));
     } catch (e) {
       alert("Error: " + e.message);
@@ -395,6 +417,12 @@ function App() {
       });
       
       if (response.ok) {
+        const resData = await response.json().catch(() => ({}));
+        const orderId = resData.orderId || Date.now();
+        
+        // Multi-Pixel Event: Purchase
+        pixelTracker.trackPurchase(orderId, cartTotal, cartItems);
+
         clearCart();
         goToHome();
         showToast('Order placed successfully! Thank you for shopping with Aura.');

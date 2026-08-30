@@ -8,12 +8,13 @@ import {
   MapPin, Globe, ShieldCheck, ShieldAlert, Navigation, Layers, Boxes, Tag, Truck,
   Star, MessageSquare, ThumbsUp, CheckCircle, Check, XCircle, AlertCircle, Camera,
   UserPlus, Key, Lock, UserCheck, Shield, Phone, ExternalLink, AlertTriangle,
-  Mail, PhoneCall, Download
+  Mail, PhoneCall, Download, Radio, Activity
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, AreaChart, Area, 
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid 
 } from 'recharts';
+import { pixelTracker } from '../utils/pixelTracker';
 import './AdminDashboard.css';
 
 const AdminDashboard = ({ currentUser }) => {
@@ -184,6 +185,7 @@ const AdminDashboard = ({ currentUser }) => {
     { id: 'orders', label: 'Orders & Fulfillment', desc: 'View customer orders, update shipping status, and customer details', icon: '📦' },
     { id: 'products', label: 'Products & Inventory', desc: 'Add/edit jewelry products, adjust prices, and manage stock levels', icon: '💎' },
     { id: 'reviews', label: 'Customer Reviews Moderation', desc: 'Approve, reject, and moderate product ratings and reviews', icon: '⭐' },
+    { id: 'marketing', label: 'Marketing & Tracking Pixels', desc: 'Configure Meta, TikTok, Google Analytics, and Snapchat pixel IDs', icon: '📡' },
     { id: 'analytics', label: 'Analytics & Ad Spend (P&L)', desc: 'View total revenue, net profits, ROAS metrics, and log ad spend', icon: '📊' },
     { id: 'ingredients', label: 'Fragrance & Notes Library', desc: 'Manage olfactive notes, materials, and ingredients database', icon: '🧪' }
   ];
@@ -318,6 +320,69 @@ const AdminDashboard = ({ currentUser }) => {
     } catch (e) {
       console.error('Failed to fetch ad spend records:', e);
     }
+  };
+
+  // --- MARKETING & TRACKING PIXELS STATE ---
+  const [pixelsConfig, setPixelsConfig] = useState({
+    metaPixelId: '',
+    metaPixelEnabled: false,
+    tiktokPixelId: '',
+    tiktokPixelEnabled: false,
+    googleAnalyticsId: '',
+    googleAnalyticsEnabled: false,
+    snapchatPixelId: '',
+    snapchatPixelEnabled: false
+  });
+  const [isPixelsLoading, setIsPixelsLoading] = useState(false);
+  const [isPixelsSaving, setIsPixelsSaving] = useState(false);
+  const [pixelTestResults, setPixelTestResults] = useState(null);
+
+  const fetchPixelsConfig = async () => {
+    setIsPixelsLoading(true);
+    try {
+      const res = await fetch('/api/settings/pixels');
+      if (res.ok) {
+        const data = await res.json();
+        setPixelsConfig(prev => ({ ...prev, ...data }));
+      }
+    } catch (e) {
+      console.error('Failed to load pixel settings:', e);
+    } finally {
+      setIsPixelsLoading(false);
+    }
+  };
+
+  const handleSavePixelsConfig = async (e) => {
+    if (e) e.preventDefault();
+    setIsPixelsSaving(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch('/api/admin/settings/pixels', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(pixelsConfig)
+      });
+      if (res.ok) {
+        pixelTracker.init(pixelsConfig);
+        showToast('Tracking Pixels updated & activated in real-time!');
+      } else {
+        showToast('Failed to save pixel configuration.', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to save pixel config:', e);
+      showToast('Network error saving pixels.', 'error');
+    } finally {
+      setIsPixelsSaving(false);
+    }
+  };
+
+  const handleTestPixelsPing = () => {
+    const res = pixelTracker.testPing();
+    setPixelTestResults(res);
+    showToast('Test event ping dispatched! Check browser console & Pixel Helper extensions.');
   };
 
   const handleSaveAdSpend = async (e) => {
@@ -658,12 +723,14 @@ const AdminDashboard = ({ currentUser }) => {
     fetchIngredients();
     fetchOrders();
     fetchCustomers();
+    fetchPixelsConfig();
 
     if (currentUser?.is_admin) {
       fetchOrders();
       fetchAdSpends();
       fetchAdminReviews();
       fetchCustomers();
+      fetchPixelsConfig();
 
       const interval = setInterval(() => {
         fetchOrders();
@@ -1873,6 +1940,25 @@ const AdminDashboard = ({ currentUser }) => {
             <Users size={18} /> Team & Permissions
             <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'team' ? 'rgba(255,255,255,0.2)' : '#fef3c7', color: activeTab === 'team' ? '#fff' : '#b45309', fontWeight: '700' }}>
               👑 Super Admin
+            </span>
+          </button>
+        )}
+        {(hasPermission('marketing') || isSuperAdmin) && (
+          <button 
+            className={`admin-tab ${activeTab === 'pixels' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('pixels');
+              fetchPixelsConfig();
+            }}
+          >
+            <Radio size={18} /> Pixels & Ads Tracking
+            <span className="badge" style={{ 
+              fontSize: '0.72rem', 
+              background: activeTab === 'pixels' ? 'rgba(255,255,255,0.2)' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#ecfdf5' : '#f1f5f9'), 
+              color: activeTab === 'pixels' ? '#fff' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#059669' : '#64748b'), 
+              fontWeight: '700' 
+            }}>
+              {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
             </span>
           </button>
         )}
@@ -5205,6 +5291,339 @@ const AdminDashboard = ({ currentUser }) => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* --- 8. MARKETING & TRACKING PIXELS PANEL --- */}
+        {activeTab === 'pixels' && (
+          <div className="admin-panel animate-fade-in">
+            {/* Header & Quick Action Bar */}
+            <div className="admin-panel-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <h2 style={{ margin: 0 }}>Marketing & Tracking Pixels</h2>
+                  <span className="badge" style={{ background: '#0f172a', color: '#fff', fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}>
+                    <Sparkles size={12} style={{ display: 'inline', marginRight: '3px' }} /> Real-Time Ads Attribution
+                  </span>
+                </div>
+                <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.4rem', marginBotton: 0 }}>
+                  Enter your advertising pixel IDs to enable automated e-commerce event tracking (PageView, ViewContent, AddToCart, InitiateCheckout, and Purchase).
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={handleTestPixelsPing}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '0.6rem 1rem' }}
+                  title="Send test ping event to verify pixel firing"
+                >
+                  <Zap size={16} color="#d97706" /> Test Event Ping
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  onClick={handleSavePixelsConfig}
+                  disabled={isPixelsSaving}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '0.6rem 1.2rem', background: '#0f172a' }}
+                >
+                  <Save size={16} /> {isPixelsSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+
+            {/* Test Results Notification Box */}
+            {pixelTestResults && (
+              <div className="animate-fade-in" style={{ marginBottom: '1.5rem', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1rem 1.2rem', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle size={18} color="#059669" />
+                  <span style={{ fontSize: '0.9rem', color: '#065f46', fontWeight: '600' }}>
+                    Test Ping Event dispatched to active pixels! Check your browser console & Pixel Helper extensions.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.78rem' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: '6px', background: pixelTestResults.meta ? '#dcfce7' : '#f1f5f9', color: pixelTestResults.meta ? '#166534' : '#64748b', fontWeight: '700' }}>
+                    Meta: {pixelTestResults.meta ? '✓ Ready' : 'Disabled'}
+                  </span>
+                  <span style={{ padding: '2px 8px', borderRadius: '6px', background: pixelTestResults.tiktok ? '#dcfce7' : '#f1f5f9', color: pixelTestResults.tiktok ? '#166534' : '#64748b', fontWeight: '700' }}>
+                    TikTok: {pixelTestResults.tiktok ? '✓ Ready' : 'Disabled'}
+                  </span>
+                  <span style={{ padding: '2px 8px', borderRadius: '6px', background: pixelTestResults.google ? '#dcfce7' : '#f1f5f9', color: pixelTestResults.google ? '#166534' : '#64748b', fontWeight: '700' }}>
+                    GA4: {pixelTestResults.google ? '✓ Ready' : 'Disabled'}
+                  </span>
+                  <span style={{ padding: '2px 8px', borderRadius: '6px', background: pixelTestResults.snapchat ? '#dcfce7' : '#f1f5f9', color: pixelTestResults.snapchat ? '#166534' : '#64748b', fontWeight: '700' }}>
+                    Snap: {pixelTestResults.snapchat ? '✓ Ready' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Pixels Grid Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              
+              {/* 1. META (FACEBOOK / INSTAGRAM) PIXEL */}
+              <div style={{ background: '#fff', border: pixelsConfig.metaPixelEnabled ? '2px solid #1877F2' : '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', transition: 'all 0.2s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#1877F2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.2rem' }}>
+                      f
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Meta (Facebook) Pixel</h3>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Facebook & Instagram Ads</span>
+                    </div>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
+                    <input 
+                      type="checkbox"
+                      checked={pixelsConfig.metaPixelEnabled}
+                      onChange={(e) => setPixelsConfig(prev => ({ ...prev, metaPixelEnabled: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#1877F2' }}
+                    />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: pixelsConfig.metaPixelEnabled ? '#1877F2' : '#94a3b8' }}>
+                      {pixelsConfig.metaPixelEnabled ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.4rem' }}>
+                    Meta Pixel / Dataset ID:
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. 123456789012345"
+                    value={pixelsConfig.metaPixelId}
+                    onChange={(e) => setPixelsConfig(prev => ({ ...prev, metaPixelId: e.target.value.trim() }))}
+                    style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569', lineHeight: '1.5' }}>
+                  <div style={{ fontWeight: '700', color: '#0f172a', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Where to find your ID?</span>
+                    <a href="https://business.facebook.com/events_manager2/" target="_blank" rel="noreferrer" style={{ color: '#1877F2', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}>
+                      Events Manager <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  Go to <strong>Meta Events Manager</strong> &rarr; Data Sources &rarr; Copy the 15 or 16-digit <strong>Dataset ID</strong>.
+                </div>
+              </div>
+
+              {/* 2. TIKTOK PIXEL */}
+              <div style={{ background: '#fff', border: pixelsConfig.tiktokPixelEnabled ? '2px solid #000' : '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', transition: 'all 0.2s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.1rem' }}>
+                      <span style={{ color: '#00f2fe' }}>T</span><span style={{ color: '#fe2c55' }}>T</span>
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>TikTok Pixel</h3>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>TikTok Ads & Spark Ads</span>
+                    </div>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
+                    <input 
+                      type="checkbox"
+                      checked={pixelsConfig.tiktokPixelEnabled}
+                      onChange={(e) => setPixelsConfig(prev => ({ ...prev, tiktokPixelEnabled: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#000' }}
+                    />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: pixelsConfig.tiktokPixelEnabled ? '#0f172a' : '#94a3b8' }}>
+                      {pixelsConfig.tiktokPixelEnabled ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.4rem' }}>
+                    TikTok Pixel ID:
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. CXXXXXXXXXXXXXXX"
+                    value={pixelsConfig.tiktokPixelId}
+                    onChange={(e) => setPixelsConfig(prev => ({ ...prev, tiktokPixelId: e.target.value.trim() }))}
+                    style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569', lineHeight: '1.5' }}>
+                  <div style={{ fontWeight: '700', color: '#0f172a', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Where to find your ID?</span>
+                    <a href="https://ads.tiktok.com/" target="_blank" rel="noreferrer" style={{ color: '#fe2c55', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}>
+                      TikTok Ads <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  Go to <strong>TikTok Ads Manager</strong> &rarr; Assets &rarr; Events &rarr; Web Events &rarr; Copy your Pixel ID.
+                </div>
+              </div>
+
+              {/* 3. GOOGLE ANALYTICS 4 (GA4 / GTM) */}
+              <div style={{ background: '#fff', border: pixelsConfig.googleAnalyticsEnabled ? '2px solid #ea580c' : '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', transition: 'all 0.2s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#ea580c', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.1rem' }}>
+                      G4
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Google Analytics (GA4)</h3>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Google Ads & E-Commerce Metrics</span>
+                    </div>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
+                    <input 
+                      type="checkbox"
+                      checked={pixelsConfig.googleAnalyticsEnabled}
+                      onChange={(e) => setPixelsConfig(prev => ({ ...prev, googleAnalyticsEnabled: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#ea580c' }}
+                    />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: pixelsConfig.googleAnalyticsEnabled ? '#ea580c' : '#94a3b8' }}>
+                      {pixelsConfig.googleAnalyticsEnabled ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.4rem' }}>
+                    GA4 Measurement ID / Tag ID:
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. G-XXXXXXXXXX"
+                    value={pixelsConfig.googleAnalyticsId}
+                    onChange={(e) => setPixelsConfig(prev => ({ ...prev, googleAnalyticsId: e.target.value.trim() }))}
+                    style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569', lineHeight: '1.5' }}>
+                  <div style={{ fontWeight: '700', color: '#0f172a', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Where to find your ID?</span>
+                    <a href="https://analytics.google.com/" target="_blank" rel="noreferrer" style={{ color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}>
+                      Google Analytics <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  Go to <strong>Google Analytics</strong> &rarr; Admin &rarr; Data Streams &rarr; Web Stream &rarr; Copy <strong>Measurement ID</strong>.
+                </div>
+              </div>
+
+              {/* 4. SNAPCHAT PIXEL */}
+              <div style={{ background: '#fff', border: pixelsConfig.snapchatPixelEnabled ? '2px solid #ca8a04' : '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', transition: 'all 0.2s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#fffc00', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '1.1rem', border: '1px solid #eab308' }}>
+                      👻
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>Snapchat Pixel</h3>
+                      <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Snap Ads & Story Campaigns</span>
+                    </div>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '6px' }}>
+                    <input 
+                      type="checkbox"
+                      checked={pixelsConfig.snapchatPixelEnabled}
+                      onChange={(e) => setPixelsConfig(prev => ({ ...prev, snapchatPixelEnabled: e.target.checked }))}
+                      style={{ width: '18px', height: '18px', accentColor: '#ca8a04' }}
+                    />
+                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: pixelsConfig.snapchatPixelEnabled ? '#ca8a04' : '#94a3b8' }}>
+                      {pixelsConfig.snapchatPixelEnabled ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#334155', marginBottom: '0.4rem' }}>
+                    Snap Pixel ID:
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    value={pixelsConfig.snapchatPixelId}
+                    onChange={(e) => setPixelsConfig(prev => ({ ...prev, snapchatPixelId: e.target.value.trim() }))}
+                    style={{ width: '100%', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', fontFamily: 'monospace' }}
+                  />
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.8rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569', lineHeight: '1.5' }}>
+                  <div style={{ fontWeight: '700', color: '#0f172a', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Where to find your ID?</span>
+                    <a href="https://ads.snapchat.com/" target="_blank" rel="noreferrer" style={{ color: '#ca8a04', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}>
+                      Snap Ads <ExternalLink size={12} />
+                    </a>
+                  </div>
+                  Go to <strong>Snap Ads Manager</strong> &rarr; Events Manager &rarr; Copy your Snap Pixel ID.
+                </div>
+              </div>
+
+            </div>
+
+            {/* Standard E-Commerce Events Breakdown Table */}
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+                <Activity size={20} color="#0f172a" />
+                <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Standard E-Commerce Events Tracked Automatically</h3>
+              </div>
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Event Trigger</th>
+                      <th>Meta Event</th>
+                      <th>TikTok Event</th>
+                      <th>GA4 Event</th>
+                      <th>Snapchat Event</th>
+                      <th>Payload / Parameters</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span style={{ fontWeight: '600', color: '#0f172a' }}>👁️ Page Navigation</span></td>
+                      <td><code>PageView</code></td>
+                      <td><code>page</code></td>
+                      <td><code>page_view</code></td>
+                      <td><code>PAGE_VIEW</code></td>
+                      <td><span style={{ fontSize: '0.8rem', color: '#64748b' }}>Page title, URL</span></td>
+                    </tr>
+                    <tr>
+                      <td><span style={{ fontWeight: '600', color: '#0f172a' }}>💎 Product View</span></td>
+                      <td><code>ViewContent</code></td>
+                      <td><code>ViewContent</code></td>
+                      <td><code>view_item</code></td>
+                      <td><code>VIEW_CONTENT</code></td>
+                      <td><span style={{ fontSize: '0.8rem', color: '#64748b' }}>Product ID, name, price (MAD), category</span></td>
+                    </tr>
+                    <tr>
+                      <td><span style={{ fontWeight: '600', color: '#0f172a' }}>🛒 Add To Bag</span></td>
+                      <td><code>AddToCart</code></td>
+                      <td><code>AddToCart</code></td>
+                      <td><code>add_to_cart</code></td>
+                      <td><code>ADD_CART</code></td>
+                      <td><span style={{ fontSize: '0.8rem', color: '#64748b' }}>Product ID, quantity, size, total price</span></td>
+                    </tr>
+                    <tr>
+                      <td><span style={{ fontWeight: '600', color: '#0f172a' }}>💳 Begin Checkout</span></td>
+                      <td><code>InitiateCheckout</code></td>
+                      <td><code>InitiateCheckout</code></td>
+                      <td><code>begin_checkout</code></td>
+                      <td><code>START_CHECKOUT</code></td>
+                      <td><span style={{ fontSize: '0.8rem', color: '#64748b' }}>Cart total value, item count, currency MAD</span></td>
+                    </tr>
+                    <tr>
+                      <td><span style={{ fontWeight: '600', color: '#059669' }}>💰 Order Placed</span></td>
+                      <td><strong style={{ color: '#059669' }}>Purchase</strong></td>
+                      <td><strong style={{ color: '#059669' }}>CompletePayment</strong></td>
+                      <td><strong style={{ color: '#059669' }}>purchase</strong></td>
+                      <td><strong style={{ color: '#059669' }}>PURCHASE</strong></td>
+                      <td><span style={{ fontSize: '0.8rem', color: '#059669', fontWeight: '600' }}>Order ID, total revenue (MAD), items list</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
       </div>

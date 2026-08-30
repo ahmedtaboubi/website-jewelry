@@ -1396,4 +1396,65 @@ app.delete('/api/ingredients/:id', async (req, res) => {
   }
 });
 
+// 19. Marketing & Tracking Pixels Settings
+app.get('/api/settings/pixels', async (req, res) => {
+  try {
+    const result = await turso.execute("SELECT value FROM store_settings WHERE key = 'pixels_config'");
+    if (result.rows.length === 0) {
+      return res.json({
+        metaPixelId: '',
+        metaPixelEnabled: false,
+        tiktokPixelId: '',
+        tiktokPixelEnabled: false,
+        googleAnalyticsId: '',
+        googleAnalyticsEnabled: false,
+        snapchatPixelId: '',
+        snapchatPixelEnabled: false
+      });
+    }
+    const config = typeof result.rows[0].value === 'string' 
+      ? JSON.parse(result.rows[0].value) 
+      : result.rows[0].value;
+    res.json(config);
+  } catch (error) {
+    console.error('Error fetching pixel settings:', error);
+    res.json({
+      metaPixelId: '',
+      metaPixelEnabled: false,
+      tiktokPixelId: '',
+      tiktokPixelEnabled: false,
+      googleAnalyticsId: '',
+      googleAnalyticsEnabled: false,
+      snapchatPixelId: '',
+      snapchatPixelEnabled: false
+    });
+  }
+});
+
+app.put('/api/admin/settings/pixels', async (req, res) => {
+  try {
+    const newConfig = req.body || {};
+    const configStr = JSON.stringify(newConfig);
+    
+    // Check if key exists
+    const existing = await turso.execute("SELECT key FROM store_settings WHERE key = 'pixels_config'");
+    if (existing.rows.length === 0) {
+      await turso.execute({
+        sql: "INSERT INTO store_settings (key, value, updated_at) VALUES ('pixels_config', ?, datetime('now'))",
+        args: [configStr]
+      });
+    } else {
+      await turso.execute({
+        sql: "UPDATE store_settings SET value = ?, updated_at = datetime('now') WHERE key = 'pixels_config'",
+        args: [configStr]
+      });
+    }
+    
+    res.json({ message: 'Pixel settings saved successfully', config: newConfig });
+  } catch (error) {
+    console.error('Error updating pixel settings:', error);
+    res.status(500).json({ error: 'Failed to save pixel settings' });
+  }
+});
+
 export default app;

@@ -7,6 +7,7 @@ import {
   Truck
 } from 'lucide-react';
 import { formatCurrency } from '../utils/currency';
+import { pixelTracker } from '../utils/pixelTracker';
 import './ProductDetail.css';
 
 const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onProductClick }) => {
@@ -210,6 +211,8 @@ const ProductDetail = ({ product, onBack, addToCart, showToast, goToBundle, onPr
   useEffect(() => {
     if (currentProduct?.id) {
       loadProductReviews(currentProduct.id);
+      // Multi-Pixel Event: ViewContent
+      pixelTracker.trackViewContent(currentProduct);
     }
   }, [currentProduct?.id]);
 

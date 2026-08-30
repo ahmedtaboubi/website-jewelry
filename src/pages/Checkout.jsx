@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle, ShieldCheck, Truck, RotateCcw, ChevronDown, ChevronUp, ShoppingBag, Gift } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../utils/currency';
+import { pixelTracker } from '../utils/pixelTracker';
 import './Checkout.css';
 
 const Checkout = ({ cartItems, cartSubtotal, discountPercent, discountAmount, shippingCost, cartTotal, onPlaceOrder, onBack, currentUser }) => {
   const { t, i18n } = useTranslation();
   const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false);
+
+  // Multi-Pixel Event: InitiateCheckout on entering checkout page
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      pixelTracker.trackInitiateCheckout(cartItems, cartTotal);
+    }
+  }, []);
   
   // Extract any gift messages attached to cart items
   const initialGiftMsg = cartItems
