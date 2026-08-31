@@ -22,6 +22,18 @@
   margin-bottom: 2rem;
   border-bottom: 1px solid var(--color-border);
   padding-bottom: 1rem;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+.admin-tabs {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .admin-tab {
@@ -37,6 +49,8 @@
   align-items: center;
   gap: 0.5rem;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .admin-tab:hover {
