@@ -1847,6 +1847,16 @@ const AdminDashboard = ({ currentUser }) => {
               </span>
             </div>
           </div>
+
+          <div className="mobile-quick-card" onClick={() => { setActiveTab('pixels'); fetchPixelsConfig(); }} style={{ borderColor: '#d1fae5', background: '#f0fdf4' }}>
+            <div className="mobile-quick-icon" style={{ background: '#ecfdf5', color: '#059669' }}><Radio size={16} /></div>
+            <div className="mobile-quick-info">
+              <span className="mobile-quick-label">Tracking Pixels</span>
+              <span className="mobile-quick-val" style={{ color: '#059669' }}>
+                {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1943,25 +1953,23 @@ const AdminDashboard = ({ currentUser }) => {
             </span>
           </button>
         )}
-        {(hasPermission('marketing') || isSuperAdmin) && (
-          <button 
-            className={`admin-tab ${activeTab === 'pixels' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('pixels');
-              fetchPixelsConfig();
-            }}
-          >
-            <Radio size={18} /> Pixels & Ads Tracking
-            <span className="badge" style={{ 
-              fontSize: '0.72rem', 
-              background: activeTab === 'pixels' ? 'rgba(255,255,255,0.2)' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#ecfdf5' : '#f1f5f9'), 
-              color: activeTab === 'pixels' ? '#fff' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#059669' : '#64748b'), 
-              fontWeight: '700' 
-            }}>
-              {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
-            </span>
-          </button>
-        )}
+        <button 
+          className={`admin-tab ${activeTab === 'pixels' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('pixels');
+            fetchPixelsConfig();
+          }}
+        >
+          <Radio size={18} /> Pixels & Tracking
+          <span className="badge" style={{ 
+            fontSize: '0.72rem', 
+            background: activeTab === 'pixels' ? 'rgba(255,255,255,0.2)' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#ecfdf5' : '#f1f5f9'), 
+            color: activeTab === 'pixels' ? '#fff' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#059669' : '#64748b'), 
+            fontWeight: '700' 
+          }}>
+            {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
+          </span>
+        </button>
       </div>
 
       <div className="admin-content">
