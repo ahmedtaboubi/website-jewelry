@@ -77,6 +77,12 @@
   border: 1px dashed var(--color-text-light);
 }
 
+.admin-tab.drag-over {
+  border: 2px dashed #059669;
+  background: #ecfdf5;
+  color: #059669;
+}
+
 .admin-tab:hover {
   background: var(--color-bg-alt);
   color: var(--color-text);
