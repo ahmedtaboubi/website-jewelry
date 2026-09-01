@@ -23,28 +23,13 @@ class PixelTracker {
     this.config = { ...this.config, ...config };
 
     // 1. Initialize Meta (Facebook) Pixel
-    if (this.config.metaPixelEnabled && this.config.metaPixelId && !window.fbq) {
+    if (this.config.metaPixelEnabled && this.config.metaPixelId) {
       try {
-        (function(f, b, e, v, n, t, s) {
-          if (f.fbq) return;
-          n = f.fbq = function() {
-            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-          };
-          if (!f._fbq) f._fbq = n;
-          n.push = n;
-          n.loaded = !0;
-          n.version = '2.0';
-          n.queue = [];
-          t = b.createElement(e);
-          t.async = !0;
-          t.src = v;
-          s = b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t, s);
-        })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-
-        window.fbq('init', this.config.metaPixelId.trim());
-        window.fbq('track', 'PageView');
-        console.log(`[PixelTracker] Meta Pixel initialized: ${this.config.metaPixelId}`);
+        if (window.fbq) {
+          window.fbq('init', this.config.metaPixelId.trim());
+          window.fbq('track', 'PageView');
+          console.log(`[PixelTracker] Meta Pixel initialized: ${this.config.metaPixelId}`);
+        }
       } catch (e) {
         console.error('[PixelTracker] Failed to init Meta Pixel:', e);
       }
