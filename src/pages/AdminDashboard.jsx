@@ -25,6 +25,54 @@ const AdminDashboard = ({ currentUser }) => {
   const [products, setProducts] = useState([]);
   const [ingredientsList, setIngredientsList] = useState([]);
   
+  // --- DRAG & DROP TABS STATE ---
+  const defaultTabOrder = ['analytics', 'customers', 'orders', 'products', 'ingredients', 'reviews', 'team', 'pixels'];
+  const [tabOrder, setTabOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('adminTabOrder');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Ensure any newly added tabs that aren't in localStorage get appended
+        const missingTabs = defaultTabOrder.filter(id => !parsed.includes(id));
+        return [...parsed, ...missingTabs];
+      }
+      return defaultTabOrder;
+    } catch {
+      return defaultTabOrder;
+    }
+  });
+
+  const handleTabDragStart = (e, id) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleTabDragEnd = (e) => {
+    e.currentTarget.classList.remove('dragging');
+  };
+
+  const handleTabDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleTabDrop = (e, targetId) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId && draggedId !== targetId) {
+      setTabOrder(prevOrder => {
+        const newOrder = [...prevOrder];
+        const draggedIndex = newOrder.indexOf(draggedId);
+        const targetIndex = newOrder.indexOf(targetId);
+        if (draggedIndex > -1 && targetIndex > -1) {
+          newOrder.splice(draggedIndex, 1);
+          newOrder.splice(targetIndex, 0, draggedId);
+          localStorage.setItem('adminTabOrder', JSON.stringify(newOrder));
+        }
+        return newOrder;
+      });
+    }
+  };
+  
   // --- REVIEWS MODERATION STATE ---
   const [adminReviews, setAdminReviews] = useState([]);
   const [adminReviewCounts, setAdminReviewCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
@@ -745,14 +793,6 @@ const AdminDashboard = ({ currentUser }) => {
     }
   }, [currentUser, reviewFilterStatus]);
 
-  if (!activeAdminUser?.is_admin && activeAdminUser?.role !== 'admin' && activeAdminUser?.role !== 'super_admin') {
-    return (
-      <div className="container text-center" style={{ padding: '4rem 0' }}>
-        <h2>Access Denied</h2>
-        <p>You do not have permission to view this page.</p>
-      </div>
-    );
-  }
 
   // --- TIME PERIOD & CALENDAR ANALYTICS STATE & CALCULATIONS ---
   const now = new Date();
@@ -1798,6 +1838,15 @@ const AdminDashboard = ({ currentUser }) => {
     });
   };
 
+  if (!activeAdminUser?.is_admin && activeAdminUser?.role !== 'admin' && activeAdminUser?.role !== 'super_admin') {
+    return (
+      <div className="container text-center" style={{ padding: '4rem 0' }}>
+        <h2>Access Denied</h2>
+        <p>You do not have permission to view this page.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-dashboard container animate-fade-in">
       <div className="admin-header">
@@ -1861,115 +1910,116 @@ const AdminDashboard = ({ currentUser }) => {
       </div>
 
       <div className="admin-tabs">
-        {hasPermission('analytics') && (
-          <button 
-            className={`admin-tab ${activeTab === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('analytics')}
-          >
-            <BarChart3 size={18} /> Analytics & Media Buying
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'analytics' ? 'rgba(255,255,255,0.2)' : '#ecfdf5', color: activeTab === 'analytics' ? '#fff' : '#059669' }}>
-              ⚡ Pro Intel
-            </span>
-          </button>
-        )}
-        {hasPermission('customers') && (
-          <button 
-            className={`admin-tab ${activeTab === 'customers' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('customers');
-              fetchCustomers();
-            }}
-          >
-            <Users size={18} /> Customers & CRM
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'customers' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'customers' ? '#fff' : '#475569' }}>
-              {customers.length}
-            </span>
-          </button>
-        )}
-        {hasPermission('orders') && (
-          <button 
-            className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('orders')}
-          >
-            <ShoppingBag size={18} /> Orders
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'orders' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'orders' ? '#fff' : '#475569' }}>
-              {orders.length}
-            </span>
-          </button>
-        )}
-        {hasPermission('products') && (
-          <button 
-            className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            <Package size={18} /> Products
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'products' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'products' ? '#fff' : '#475569' }}>
-              {products.length}
-            </span>
-          </button>
-        )}
-        {hasPermission('ingredients') && (
-          <button 
-            className={`admin-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ingredients')}
-          >
-            <FlaskConical size={18} /> Ingredients
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'ingredients' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'ingredients' ? '#fff' : '#475569' }}>
-              {ingredientsList.length}
-            </span>
-          </button>
-        )}
-        {hasPermission('reviews') && (
-          <button 
-            className={`admin-tab ${activeTab === 'reviews' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('reviews');
-              fetchAdminReviews();
-            }}
-          >
-            <MessageSquare size={18} /> Reviews & Moderation
-            {adminReviewCounts.pending > 0 ? (
-              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? '#d97706' : '#f59e0b', color: '#fff', fontWeight: '700' }}>
-                ⏳ {adminReviewCounts.pending} Pending
+        {tabOrder.map(tabId => {
+          if (tabId === 'analytics' && hasPermission('analytics')) return (
+            <button key="analytics" draggable={true} className={`admin-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+              onDragStart={(e) => handleTabDragStart(e, 'analytics')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'analytics')}>
+              <BarChart3 size={18} />
+              <span className="tab-label">Analytics & Media Buying</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'analytics' ? 'rgba(255,255,255,0.2)' : '#ecfdf5', color: activeTab === 'analytics' ? '#fff' : '#059669' }}>
+                ⚡ Pro Intel
               </span>
-            ) : (
-              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'reviews' ? '#fff' : '#475569' }}>
-                {adminReviewCounts.total}
+            </button>
+          );
+          if (tabId === 'customers' && hasPermission('customers')) return (
+            <button key="customers" draggable={true} className={`admin-tab ${activeTab === 'customers' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('customers'); fetchCustomers(); }}
+              onDragStart={(e) => handleTabDragStart(e, 'customers')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'customers')}>
+              <Users size={18} />
+              <span className="tab-label">Customers & CRM</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'customers' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'customers' ? '#fff' : '#475569' }}>
+                {customers.length}
               </span>
-            )}
-          </button>
-        )}
-        {isSuperAdmin && (
-          <button 
-            className={`admin-tab ${activeTab === 'team' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('team');
-              fetchAdminTeam();
-            }}
-          >
-            <Users size={18} /> Team & Permissions
-            <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'team' ? 'rgba(255,255,255,0.2)' : '#fef3c7', color: activeTab === 'team' ? '#fff' : '#b45309', fontWeight: '700' }}>
-              👑 Super Admin
-            </span>
-          </button>
-        )}
-        <button 
-          className={`admin-tab ${activeTab === 'pixels' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('pixels');
-            fetchPixelsConfig();
-          }}
-        >
-          <Radio size={18} /> Pixels & Tracking
-          <span className="badge" style={{ 
-            fontSize: '0.72rem', 
-            background: activeTab === 'pixels' ? 'rgba(255,255,255,0.2)' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#ecfdf5' : '#f1f5f9'), 
-            color: activeTab === 'pixels' ? '#fff' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#059669' : '#64748b'), 
-            fontWeight: '700' 
-          }}>
-            {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
-          </span>
-        </button>
+            </button>
+          );
+          if (tabId === 'orders' && hasPermission('orders')) return (
+            <button key="orders" draggable={true} className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+              onDragStart={(e) => handleTabDragStart(e, 'orders')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'orders')}>
+              <ShoppingBag size={18} />
+              <span className="tab-label">Orders</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'orders' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'orders' ? '#fff' : '#475569' }}>
+                {orders.length}
+              </span>
+            </button>
+          );
+          if (tabId === 'products' && hasPermission('products')) return (
+            <button key="products" draggable={true} className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
+              onClick={() => setActiveTab('products')}
+              onDragStart={(e) => handleTabDragStart(e, 'products')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'products')}>
+              <Package size={18} />
+              <span className="tab-label">Products</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'products' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'products' ? '#fff' : '#475569' }}>
+                {products.length}
+              </span>
+            </button>
+          );
+          if (tabId === 'ingredients' && hasPermission('ingredients')) return (
+            <button key="ingredients" draggable={true} className={`admin-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
+              onClick={() => setActiveTab('ingredients')}
+              onDragStart={(e) => handleTabDragStart(e, 'ingredients')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'ingredients')}>
+              <FlaskConical size={18} />
+              <span className="tab-label">Ingredients</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'ingredients' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'ingredients' ? '#fff' : '#475569' }}>
+                {ingredientsList.length}
+              </span>
+            </button>
+          );
+          if (tabId === 'reviews' && hasPermission('reviews')) return (
+            <button key="reviews" draggable={true} className={`admin-tab ${activeTab === 'reviews' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('reviews'); fetchAdminReviews(); }}
+              onDragStart={(e) => handleTabDragStart(e, 'reviews')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'reviews')}>
+              <MessageSquare size={18} />
+              <span className="tab-label">Reviews & Moderation</span>
+              {adminReviewCounts.pending > 0 ? (
+                <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? '#d97706' : '#f59e0b', color: '#fff', fontWeight: '700' }}>
+                  ⏳ {adminReviewCounts.pending} Pending
+                </span>
+              ) : (
+                <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'reviews' ? 'rgba(255,255,255,0.2)' : '#f1f5f9', color: activeTab === 'reviews' ? '#fff' : '#475569' }}>
+                  {adminReviewCounts.total}
+                </span>
+              )}
+            </button>
+          );
+          if (tabId === 'team' && isSuperAdmin) return (
+            <button key="team" draggable={true} className={`admin-tab ${activeTab === 'team' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('team'); fetchAdminTeam(); }}
+              onDragStart={(e) => handleTabDragStart(e, 'team')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'team')}>
+              <Users size={18} />
+              <span className="tab-label">Team & Permissions</span>
+              <span className="badge" style={{ fontSize: '0.72rem', background: activeTab === 'team' ? 'rgba(255,255,255,0.2)' : '#fef3c7', color: activeTab === 'team' ? '#fff' : '#b45309', fontWeight: '700' }}>
+                👑 Super Admin
+              </span>
+            </button>
+          );
+          if (tabId === 'pixels') return (
+            <button key="pixels" draggable={true} className={`admin-tab ${activeTab === 'pixels' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('pixels'); fetchPixelsConfig(); }}
+              onDragStart={(e) => handleTabDragStart(e, 'pixels')} onDragEnd={handleTabDragEnd}
+              onDragOver={handleTabDragOver} onDrop={(e) => handleTabDrop(e, 'pixels')}>
+              <Radio size={18} />
+              <span className="tab-label">Pixels & Tracking</span>
+              <span className="badge" style={{ 
+                fontSize: '0.72rem', 
+                background: activeTab === 'pixels' ? 'rgba(255,255,255,0.2)' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#ecfdf5' : '#f1f5f9'), 
+                color: activeTab === 'pixels' ? '#fff' : ([pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].some(Boolean) ? '#059669' : '#64748b'), 
+                fontWeight: '700' 
+              }}>
+                {[pixelsConfig.metaPixelEnabled, pixelsConfig.tiktokPixelEnabled, pixelsConfig.googleAnalyticsEnabled, pixelsConfig.snapchatPixelEnabled].filter(Boolean).length} Active
+              </span>
+            </button>
+          );
+          return null;
+        })}
       </div>
 
       <div className="admin-content">
