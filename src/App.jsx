@@ -42,8 +42,11 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeShopFilter, setActiveShopFilter] = useState('');
 
-  // Track page view on route changes
+  // Track page view on route changes (exclude admin panel)
   useEffect(() => {
+    if (currentPage === 'admin' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'))) {
+      return;
+    }
     pixelTracker.trackPageView(`Aura - ${currentPage.charAt(0).toUpperCase() + currentPage.slice(1)}`);
   }, [currentPage]);
   

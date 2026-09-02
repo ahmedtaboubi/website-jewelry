@@ -124,6 +124,14 @@ class PixelTracker {
    * Track Page View
    */
   trackPageView(pageName = 'Aura Store') {
+    // Exclude internal admin dashboard views to prevent skewing store analytics
+    if (
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) ||
+      (pageName && pageName.toLowerCase().includes('admin'))
+    ) {
+      return;
+    }
+
     if (this.config.metaPixelEnabled && window.fbq) {
       window.fbq('track', 'PageView');
     }
