@@ -23,10 +23,21 @@ const FilterDropdown = ({ title, options, selectedFilters, onToggle }) => {
     };
   }, []);
   
+  // Count how many options in this dropdown are currently active
+  const activeCount = options.filter(opt => {
+    const label = typeof opt === 'string' ? opt : opt.label;
+    return selectedFilters.includes(label);
+  }).length;
+
   return (
     <div className="dropdown-container" style={{ position: 'relative' }} ref={dropdownRef}>
-      <button className="btn-dropdown" onClick={() => setIsOpen(!isOpen)}>
-        {title} <ChevronDown size={14} />
+      <button 
+        className={`btn-dropdown ${activeCount > 0 ? 'has-active' : ''}`} 
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span>{title}</span>
+        {activeCount > 0 && <span className="filter-count-bubble dropdown-bubble">{activeCount}</span>}
+        <ChevronDown size={14} />
       </button>
       
       {isOpen && (
@@ -225,11 +236,14 @@ const Shop = ({ onProductClick, addToCart, activeFilter, goToBundle }) => {
         {/* Filter Bar */}
         <div className="shop-filter-bar">
           <button 
-            className={`btn-filter ${isFilterSidebarOpen ? 'active' : ''}`}
+            className={`btn-filter ${isFilterSidebarOpen ? 'active' : ''} ${selectedFilters.length > 0 ? 'has-active-filters' : ''}`}
             onClick={() => setIsFilterSidebarOpen(!isFilterSidebarOpen)}
           >
             <SlidersHorizontal size={16} /> 
-            {isFilterSidebarOpen ? t('shop_page.hide_filter') : t('shop_page.show_filter')}
+            <span>{isFilterSidebarOpen ? t('shop_page.hide_filter') : t('shop_page.show_filter')}</span>
+            {selectedFilters.length > 0 && (
+              <span className="filter-count-bubble main-filter-bubble">{selectedFilters.length}</span>
+            )}
           </button>
           
           <div className="shop-search">
@@ -264,6 +278,35 @@ const Shop = ({ onProductClick, addToCart, activeFilter, goToBundle }) => {
             />
           </div>
         </div>
+
+        {/* Active Filters Pill Bar */}
+        {selectedFilters.length > 0 && (
+          <div className="shop-active-filters-bar animate-fade-in">
+            <div className="active-filters-label-group">
+              <span className="active-filters-label">Filters applied:</span>
+              <span className="filter-count-bubble pill-bubble">{selectedFilters.length}</span>
+            </div>
+            <div className="active-filters-chips-list">
+              {selectedFilters.map(filter => (
+                <button 
+                  key={filter} 
+                  className="active-filter-chip"
+                  onClick={() => handleFilterToggle(filter)}
+                  title={`Remove ${filter}`}
+                >
+                  <span>{filter}</span>
+                  <span className="chip-remove-icon">×</span>
+                </button>
+              ))}
+              <button 
+                className="btn-clear-filters"
+                onClick={() => setSelectedFilters([])}
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Title Row */}
         <div className="shop-title-row">

@@ -19,6 +19,44 @@
   text-transform: uppercase;
 }
 
+.filter-sections-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sidebar-clear-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s ease;
+}
+
+.sidebar-clear-btn:hover {
+  color: #000;
+}
+
+.accordion-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #000;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .sort-dropdown {
   display: flex;
   justify-content: space-between;

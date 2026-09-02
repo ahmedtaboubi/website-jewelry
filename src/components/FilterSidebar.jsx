@@ -4,13 +4,16 @@ import { useTranslation } from 'react-i18next';
 import { SteelIcon, XpAlloyIcon, ZirconiaIcon, LapisIcon } from './MaterialIcons';
 import './FilterSidebar.css';
 
-const FilterAccordion = ({ title, defaultOpen = true, children }) => {
+const FilterAccordion = ({ title, count = 0, defaultOpen = true, children }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <div className={`filter-accordion ${isOpen ? 'open' : ''}`}>
       <div className="filter-accordion-header" onClick={() => setIsOpen(!isOpen)}>
-        <h4>{title}</h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h4>{title}</h4>
+          {count > 0 && <span className="accordion-count-badge">{count}</span>}
+        </div>
         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </div>
       {isOpen && <div className="filter-accordion-content">{children}</div>}
@@ -44,20 +47,27 @@ const FilterCheckbox = ({ label, icon, checked, onChange, intensity }) => {
 
 const FilterSidebar = ({ activeFilters = [], onFilterChange }) => {
   const { t } = useTranslation();
-  const [localFilters, setLocalFilters] = useState(activeFilters);
 
   const handleToggle = (filterName) => {
-    const newFilters = localFilters.includes(filterName)
-      ? localFilters.filter(f => f !== filterName)
-      : [...localFilters, filterName];
+    const newFilters = activeFilters.includes(filterName)
+      ? activeFilters.filter(f => f !== filterName)
+      : [...activeFilters, filterName];
     
-    setLocalFilters(newFilters);
     if (onFilterChange) {
       onFilterChange(newFilters);
     }
   };
 
-  const isChecked = (filterName) => localFilters.includes(filterName);
+  const isChecked = (filterName) => activeFilters.includes(filterName);
+
+  // Group counts
+  const categoryItems = ["Rings", "Necklaces", "Bracelets", "Earrings"];
+  const materialItems = ["Stainless Steel", "XP Alloy", "Zirconia", "Lapis Lazuli"];
+  const sizeItems = ["Delicate", "Standard", "Statement"];
+
+  const categoryCount = categoryItems.filter(f => activeFilters.includes(f)).length;
+  const materialCount = materialItems.filter(f => activeFilters.includes(f)).length;
+  const sizeCount = sizeItems.filter(f => activeFilters.includes(f)).length;
 
   return (
     <div className="filter-sidebar">
@@ -70,23 +80,39 @@ const FilterSidebar = ({ activeFilters = [], onFilterChange }) => {
       </div>
 
       <div className="filter-sections">
-        <h4 className="filters-title">{t('filter_sidebar.filters')}</h4>
+        <div className="filter-sections-top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h4 className="filters-title" style={{ margin: 0 }}>{t('filter_sidebar.filters')}</h4>
+            {activeFilters.length > 0 && (
+              <span className="filter-count-bubble">{activeFilters.length}</span>
+            )}
+          </div>
+          {activeFilters.length > 0 && (
+            <button 
+              type="button"
+              className="sidebar-clear-btn"
+              onClick={() => onFilterChange && onFilterChange([])}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
 
-        <FilterAccordion title={t('filter_sidebar.category')}>
+        <FilterAccordion title={t('filter_sidebar.category')} count={categoryCount}>
           <FilterCheckbox label={t('filter_sidebar.rings')} checked={isChecked("Rings")} onChange={() => handleToggle("Rings")} />
           <FilterCheckbox label={t('filter_sidebar.necklaces')} checked={isChecked("Necklaces")} onChange={() => handleToggle("Necklaces")} />
           <FilterCheckbox label={t('filter_sidebar.bracelets')} checked={isChecked("Bracelets")} onChange={() => handleToggle("Bracelets")} />
           <FilterCheckbox label={t('filter_sidebar.earrings')} checked={isChecked("Earrings")} onChange={() => handleToggle("Earrings")} />
         </FilterAccordion>
 
-        <FilterAccordion title={t('filter_sidebar.material')}>
+        <FilterAccordion title={t('filter_sidebar.material')} count={materialCount}>
           <FilterCheckbox label={t('filter_sidebar.stainless_steel')} icon={<SteelIcon size={18} />} checked={isChecked("Stainless Steel")} onChange={() => handleToggle("Stainless Steel")} />
           <FilterCheckbox label={t('filter_sidebar.xp_alloy')} icon={<XpAlloyIcon size={18} />} checked={isChecked("XP Alloy")} onChange={() => handleToggle("XP Alloy")} />
           <FilterCheckbox label={t('filter_sidebar.zirconia')} icon={<ZirconiaIcon size={18} />} checked={isChecked("Zirconia")} onChange={() => handleToggle("Zirconia")} />
           <FilterCheckbox label={t('filter_sidebar.lapis_lazuli')} icon={<LapisIcon size={18} />} checked={isChecked("Lapis Lazuli")} onChange={() => handleToggle("Lapis Lazuli")} />
         </FilterAccordion>
 
-        <FilterAccordion title={t('filter_sidebar.size')}>
+        <FilterAccordion title={t('filter_sidebar.size')} count={sizeCount}>
           <FilterCheckbox label={t('filter_sidebar.delicate')} intensity={1} checked={isChecked("Delicate")} onChange={() => handleToggle("Delicate")} />
           <FilterCheckbox label={t('filter_sidebar.standard')} intensity={2} checked={isChecked("Standard")} onChange={() => handleToggle("Standard")} />
           <FilterCheckbox label={t('filter_sidebar.statement')} intensity={3} checked={isChecked("Statement")} onChange={() => handleToggle("Statement")} />
