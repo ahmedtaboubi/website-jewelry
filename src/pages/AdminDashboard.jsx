@@ -1848,7 +1848,7 @@ const AdminDashboard = ({ currentUser }) => {
   }
 
   return (
-    <div className="admin-dashboard container animate-fade-in">
+    <div className="admin-dashboard container animate-fade-in" data-fb-disable="true">
       <div className="admin-header">
         <div className="admin-header-flex">
           <div>

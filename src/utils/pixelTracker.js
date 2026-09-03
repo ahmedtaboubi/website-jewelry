@@ -26,9 +26,14 @@ class PixelTracker {
     if (this.config.metaPixelEnabled && this.config.metaPixelId) {
       try {
         if (window.fbq) {
-          window.fbq('init', this.config.metaPixelId.trim());
-          window.fbq('track', 'PageView');
-          console.log(`[PixelTracker] Meta Pixel initialized: ${this.config.metaPixelId}`);
+          const pixelId = this.config.metaPixelId.trim();
+          // Disable automatic button click scraping (prevents admin tabs/buttons from firing fake events)
+          window.fbq('set', 'autoConfig', false, pixelId);
+          window.fbq('init', pixelId);
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/admin')) {
+            window.fbq('track', 'PageView');
+          }
+          console.log(`[PixelTracker] Meta Pixel initialized: ${pixelId}`);
         }
       } catch (e) {
         console.error('[PixelTracker] Failed to init Meta Pixel:', e);
