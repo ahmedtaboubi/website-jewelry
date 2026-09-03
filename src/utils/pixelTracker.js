@@ -279,6 +279,136 @@ class PixelTracker {
   }
 
   /**
+   * Track when a customer selects an individual piece inside the Bundle Builder
+   */
+  trackBundleItemSelect(product) {
+    if (!product) return;
+    const price = parseFloat(product.priceStr || product.price) || 0;
+    const currency = 'MAD';
+    const contentId = String(product.id);
+    const contentName = product.name || 'Jewelry Piece';
+    const category = product.category || 'Jewelry';
+
+    // Meta Pixel (tracks standard AddToCart and CustomizeProduct)
+    if (this.config.metaPixelEnabled && window.fbq) {
+      window.fbq('track', 'AddToCart', {
+        content_name: contentName,
+        content_category: category,
+        content_ids: [contentId],
+        content_type: 'product',
+        value: price,
+        currency: currency
+      });
+      window.fbq('track', 'CustomizeProduct', {
+        content_name: contentName,
+        content_category: category,
+        content_ids: [contentId],
+        content_type: 'product',
+        value: price,
+        currency: currency
+      });
+    }
+
+    // TikTok Pixel
+    if (this.config.tiktokPixelEnabled && window.ttq) {
+      window.ttq.track('AddToCart', {
+        content_id: contentId,
+        content_type: 'product',
+        content_name: contentName,
+        quantity: 1,
+        price: price,
+        value: price,
+        currency: currency
+      });
+    }
+
+    // Google Analytics
+    if (this.config.googleAnalyticsEnabled && window.gtag) {
+      window.gtag('event', 'add_to_cart', {
+        currency: currency,
+        value: price,
+        items: [{
+          item_id: contentId,
+          item_name: contentName,
+          item_category: category,
+          price: price,
+          quantity: 1
+        }]
+      });
+    }
+
+    // Snapchat Pixel
+    if (this.config.snapchatPixelEnabled && window.snaptr) {
+      window.snaptr('track', 'ADD_CART', {
+        item_category: category,
+        item_ids: [contentId],
+        number_items: 1,
+        price: price,
+        currency: currency
+      });
+    }
+  }
+
+  /**
+   * Track when a customer adds the full completed bundle to cart
+   */
+  trackBundleAddToCart(items = [], totalValue = 0) {
+    if (!items || items.length === 0) return;
+    const currency = 'MAD';
+    const contentIds = items.map(item => String(item.id));
+    const totalQty = items.length;
+    const value = parseFloat(totalValue) || items.reduce((s, i) => s + (parseFloat(i.priceStr || i.price) || 0), 0);
+
+    // Meta Pixel
+    if (this.config.metaPixelEnabled && window.fbq) {
+      window.fbq('track', 'AddToCart', {
+        content_name: `Custom Jewelry Bundle (${totalQty} Pieces)`,
+        content_category: 'Jewelry Bundle',
+        content_ids: contentIds,
+        content_type: 'product_group',
+        num_items: totalQty,
+        value: value,
+        currency: currency
+      });
+    }
+
+    // TikTok Pixel
+    if (this.config.tiktokPixelEnabled && window.ttq) {
+      window.ttq.track('AddToCart', {
+        content_type: 'product',
+        quantity: totalQty,
+        value: value,
+        currency: currency
+      });
+    }
+
+    // Google Analytics
+    if (this.config.googleAnalyticsEnabled && window.gtag) {
+      window.gtag('event', 'add_to_cart', {
+        currency: currency,
+        value: value,
+        items: items.map(i => ({
+          item_id: String(i.id),
+          item_name: i.name,
+          item_category: i.category || 'Jewelry',
+          price: parseFloat(i.priceStr || i.price) || 0,
+          quantity: 1
+        }))
+      });
+    }
+
+    // Snapchat Pixel
+    if (this.config.snapchatPixelEnabled && window.snaptr) {
+      window.snaptr('track', 'ADD_CART', {
+        item_ids: contentIds,
+        number_items: totalQty,
+        price: value,
+        currency: currency
+      });
+    }
+  }
+
+  /**
    * Track Initiate Checkout
    */
   trackInitiateCheckout(items = [], cartTotal = 0) {

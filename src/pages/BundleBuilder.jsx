@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import ProductCard from '../components/ProductCard';
 import { formatCurrency, parsePrice } from '../utils/currency';
+import { pixelTracker } from '../utils/pixelTracker';
 import './BundleBuilder.css';
 
 const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
@@ -85,6 +86,13 @@ const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
     }
     
     setSelectedItems([...selectedItems, product]);
+
+    // Track bundle item selection in Meta/TikTok/GA pixels
+    try {
+      pixelTracker.trackBundleItemSelect(product);
+    } catch (e) {
+      console.error('[BundleBuilder] Failed to track item selection:', e);
+    }
   };
 
   const handleRemoveItem = (index) => {
@@ -98,6 +106,15 @@ const BundleBuilder = ({ onAddMultipleToCart, showToast }) => {
       showToast(t('bundle_builder.min_warning'));
       return;
     }
+
+    // Track adding the full bundle to cart in Meta/TikTok/GA pixels
+    try {
+      const bundleTotal = selectedItems.reduce((sum, item) => sum + (parseFloat(item.priceStr || item.price) || 0), 0);
+      pixelTracker.trackBundleAddToCart(selectedItems, bundleTotal);
+    } catch (e) {
+      console.error('[BundleBuilder] Failed to track bundle add to cart:', e);
+    }
+
     onAddMultipleToCart(selectedItems);
     setSelectedItems([]);
     showToast(t('bundle_builder.added_toast', { count: selectedItems.length }));
